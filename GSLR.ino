@@ -213,13 +213,13 @@ uint8_t oldseconds = 0;
 char gpsstr1[80];
 char gpsstr2[80];
 
-const byte buff_size = 80; // buffer size must be a constant variable
+const byte buff_size = 80; //buffer size must be a constant variable
 char buffer[buff_size];
-byte index = 0;   // declare all variables that will hold numbers less than '255' as 'byte' data type, because they require only '1-byte' of memory ('int' uses 2-bytes).
+byte index = 0;   //declare all variables that will hold numbers less than '255' as 'byte' data type, because they require only '1-byte' of memory ('int' uses 2-bytes).
 byte start_with = 0;
 byte end_with = 0;
 byte CRC = 0;
-boolean data_end = false; // Here we will keep track of EOT (End Of Transmission).
+boolean data_end = false; //Here we will keep track of EOT (End Of Transmission).
 
 
 // Define the data packet struct that will be received from the GPS transmitter
@@ -233,16 +233,16 @@ struct Payload
 	uint8_t day;
 	uint8_t month;
 	uint8_t year;
-	float groundspeed; // In knots
-	float track; // Course over ground in degrees
+	float groundspeed; //In knots
+	float track; //Course over ground in degrees
 	float latitude; //ddmm.mmmm
-	char lat; // N/S
-	float longitude; // dddmm.mmmm
-	char lon; // E/W
-	float altitude; //  MSL Altitude
-	uint8_t fixquality; // Same as 3D FIX
-	uint8_t satellites; // Range 0 to 14
-	float HDOP; // Horizontal Dilution of Precision <2.0 is good - https://en.wikipedia.org/wiki/Dilution_of_precision_(GPS)
+	char lat; //N/S
+	float longitude; //dddmm.mmmm
+	char lon; //E/W
+	float altitude; //MSL Altitude
+	uint8_t fixquality; //Same as 3D FIX
+	uint8_t satellites; //Range 0 to 14
+	float HDOP; //Horizontal Dilution of Precision <2.0 is good - https://en.wikipedia.org/wiki/Dilution_of_precision_(GPS)
 	float geoidheight;
 	float latitudedeg;
 	float longitudedeg;
@@ -262,12 +262,12 @@ uint8_t warningLevel = 0;	//warning messages are limited to overlap only some me
 #define FLAGRESET false
 
 // Timers
-unsigned long int timerLink;	//for dataloss timeout calculation
+unsigned long int timerLink;	//for data loss timeout calculation
 unsigned long int timerWarning  = 0; //for warning display @ 2000ms intervals 
 
-// General purpose auxiliar vars
+// General purpose auxiliary vars
 char strPRT[100]; // to support any print command with sprintf
-char strtmp[40];  // to suport float to string convertion or other string manipulation
+char strtmp[40];  // to support float to string conversion or other string manipulation
 
 // Function declaration because Visual studio is demanding!!! HUUUGGHHHH
 #define VISUALSTD
@@ -317,16 +317,7 @@ void setup()
 
 	Serial.println("Initializing...");
 
-	// ### Initialize push-buttons
-	pinMode(BUTPIN1, INPUT_PULLUP);	// Setup the first button with an internal pull-up
-	debouncer1.attach(BUTPIN1);	// After setting up the button, setup the Bounce instance
-	debouncer1.interval(5); // Debounce interval in ms
-
-	pinMode(BUTPIN2, INPUT_PULLUP);	// Setup the second button with an internal pull-up
-	debouncer2.attach(BUTPIN2);	// After setting up the button, setup the Bounce instance
-	debouncer2.interval(5); // Debounce interval in ms
-
-	#ifdef LCD
+		#ifdef LCD
 		pinMode(PIN_LCD_LIGHT, OUTPUT); //LCD backlight, LOW = backlight ON
 #endif
 
@@ -345,7 +336,7 @@ void setup()
 		display.setContrast(60); // you can change the contrast around to adapt the display for the best viewing!
 		display.println("Starting LCD display!");
 		display.print("Ver. "); display.println(VERSION);
-		display.display(); // show splashscreen
+		display.display(); // show splash screen
 		delay(1000);
 	#endif
 
@@ -378,8 +369,8 @@ void setup()
 
 	//Radio Setup
 	if (!radio.init())
-		Serial.println("init failed");
-	else { Serial.print("init OK - "); Serial.print(FREQUENCY); Serial.println("mhz"); }
+		Serial.println("Init failed!");
+	else { Serial.print("Init OK - "); Serial.print(FREQUENCY); Serial.println("Mhz"); }
 	// Defaults after init are 434.0MHz, 13dBm, Bw = 125 kHz, Cr = 4/5, Sf = 128chips/symbol, CRC on
 	radio.setFrequency(FREQUENCY);
 
@@ -392,8 +383,8 @@ void setup()
 	Serial.print("Log next read addr:"); Serial.println(mylog.nextRead);
 	Serial.print("Log # records saved:"); Serial.println(mylog.numRecords);
 
-	// load menuscreen on LCD/TFT
-	displaymenu(menuPage,false); //Strat menu display (menu page number, screen refresh requirement)
+	// load menu screen on LCD/TFT
+	displaymenu(menuPage,false); //Start menu display (menu page number, screen refresh requirement)
 
 	Serial.println("Setup finished");
 
@@ -405,9 +396,6 @@ void loop()
 
 		if (!digitalRead(BUTPIN1))  // process button 1 if pressed - Menu navigation
 	{
-		#ifdef DEBUG
-				Serial.println("DEBUG - B1 click");
-		#endif
 		changeMenu();
 		displaymenu(menuPage,true);
 		warningLevel = setflag(warningLevel, 0xFF, FLAGRESET); // reset all warning to force re-evaluation
@@ -455,19 +443,19 @@ void loop()
 				displaymenu(menuPage, true);
 				break;
 			}
-			case 8: // dump log to google 
+			case 8: // dump log to Googlemaps
 			{
 				//  display some activity message
 				displaySetCursor(1, 0); display.print(fill(strPRT, SCRCHARS, ' ', true));
 				displaySetCursor(2, 0); display.print(fill(strPRT, SCRCHARS, ' ', true));
 				displaySetCursor(3, 0); display.print(fill(strPRT, SCRCHARS, ' ', true));
-				displaySetCursor(2, 0); sprintf(strPRT, "dumping LOG..."); display.print(strPRT);
+				displaySetCursor(2, 0); sprintf(strPRT, "Dumping LOG..."); display.print(strPRT);
 
 				uint16_t logStart = mylog.nextRead;
 				Payload logData;
 
 				// Read data from log and send it to Google as data is read
-				noInterrupts(); // so that no addicional log data is saved
+				noInterrupts(); // so that no additional log data is saved
 				for (uint16_t i = 1; i < mylog.numRecords; i++)
 				{
 					#ifdef DEBUG
@@ -502,7 +490,7 @@ void loop()
 			timerLink = millis(); //Set a counter for data link loss timeout calculation
 			rssi = radio.lastRssi(); //RSSI;
 
-				// if GPS fix aquired
+				// if GPS fix acquired
 			if (Data.fix == 1)
 			{
 				if (fixinMem == 0) fixposition();
@@ -564,8 +552,8 @@ void loop()
 	}
 	else // if no data received
 	{
-		// check if link timeout, ie, no data received for mre than 5 sec
-		if (millis() > (timerLink + 5000)) //When LOST for more than 5 sec...
+		// check if link timeout, ie, no data received for more than 5 sec
+		if (millis() > (timerLink + 5000)) //If LINK lost for more than 5 sec...
 		{
 			warningLevel = setflag(warningLevel, WRN_LINK, FLAGSET);  // set LINK flag
 			#ifdef BUZZER    
@@ -583,7 +571,7 @@ void loop()
 	}
 
 	// check Warnings
-	if (millis() < timerWarning) timerWarning = millis(); // if millis() wrap arround reintialize timer
+	if (millis() < timerWarning) timerWarning = millis(); // if millis() wrap around reinitialize timer
 	if (millis() > timerWarning + 2000)
 	{
 		displaywarning(warningLevel);
@@ -651,20 +639,14 @@ void displaySetCursor(int line, int column)
 
 void fixposition()
 {
-	highspeed = 0;//Reset maximum speed memory
-	maxdist = 0; //Reset maximum distane
+	highspeed = 0;//Reset maximum speed
+	maxdist = 0; //Reset maximum distance
 	maxalt = 0; //Reset maximum altitude
 	kmflagmem = 0; //Reset Km flag mem
 	homeazim = 0;
 	homelat = Data.latitudedeg;//Memorize FIX latitude in DDMM.SS
 	homelon = Data.longitudedeg;//Memorize FIX longitude in DDDMM.SS
-
-	/*
-	if (Data.lat == 'S') homelat = -homelat;
-	if (Data.lon == 'W') homelon = -homelon;
-	*/
-
-	displayReset();
+		displayReset();
 	display.println("FIX Position Memorized");
 	display.println("LAT:"); display.println(homelat, 8); display.println("LON:"); display.println(homelon, 8);
 	homealt = Data.altitude;
@@ -709,7 +691,6 @@ void displaymenu(byte menuPage, bool forceRepaint)
 					displaySetCursor(4, 8); display.print(rssi);
 				}
 			break;
-
 		}
 
 		case 2: //INFO MENU
@@ -747,7 +728,6 @@ void displaymenu(byte menuPage, bool forceRepaint)
 			if (lastmenu != menuPage || forceRepaint)
 			{
 				lastmenu = menuPage;
-
 				displayReset();
 				displaySetCursor(0, 0); display.print("3 - MAXIMUM");
 				displaySetCursor(1, 0); sprintf(strPRT, "MxSpd:%s", dtostrf(highspeed, 4, 0, strtmp)); display.print(strPRT);
@@ -755,17 +735,14 @@ void displaymenu(byte menuPage, bool forceRepaint)
 				displaySetCursor(3, 0); sprintf(strPRT, "MxDst:%d", maxdist); display.print(strPRT);
 				if (kmflag == 0) display.print("m"); else display.print("Km");
 				displaySetCursor(4, 0); sprintf(strPRT, "\nGPS Alt:%s",dtostrf( Data.altitude,5,0,strtmp)); display.print(strPRT);
-
 			}
 			else
 			{
-
 				displaySetCursor(1, 6); sprintf(strPRT, "%s", dtostrf(highspeed, 4, 0, strtmp)); display.print(strPRT);
 				displaySetCursor(2, 6); sprintf(strPRT, "%4d", maxalt); display.print(strPRT);
 				displaySetCursor(3, 6); sprintf(strPRT, "%d", maxdist); display.print(strPRT);
 				if (kmflag == 0) display.print("m"); else display.print("Km");
 				displaySetCursor(5, 8); sprintf(strPRT, "%s ", dtostrf(Data.altitude, 5, 0, strtmp)); display.print(strPRT);
-
 			}
 			break;
 		}
@@ -775,7 +752,6 @@ void displaymenu(byte menuPage, bool forceRepaint)
 			if (lastmenu != menuPage || forceRepaint)
 			{
 				lastmenu = menuPage;
-
 				displayReset();
 				displaySetCursor(0, 0); display.print("4 - P. POS");
 				displaySetCursor(1, 0); sprintf(strPRT, "LAT:%c %s", Data.lat, dtostrf(Data.latitude, 9, 4, strtmp)); display.print(strPRT);
@@ -868,26 +844,23 @@ void displaymenu(byte menuPage, bool forceRepaint)
 
 
 	}
-#ifdef LCD
-	display.display();
-#endif
+	#ifdef LCD
+		display.display();
+	#endif
 	return;
 }
 
 void displaywarning(int warningcode)
 {
-
 		displaySetCursor(SCRLINES , 0);
 		display.setTextColor(WHITE, BLACK);
 		display.print(fill(strtmp, SCRCHARS, ' ', true));
 		displaySetCursor(SCRLINES , 0);
-
 		if (warningcode & WRN_LINK) //link lost
 		{
 			Serial.print("link Lost");
 			display.setTextColor(WHITE, RED);
 			display.print("LINK ");
-
 		}
 		if (warningcode & WRN_FIX)  // GPS fix lost
 		{
@@ -896,83 +869,71 @@ void displaywarning(int warningcode)
 			display.print(" GPS ");
 
 		}
-	
-
 	displaySetCursor(0, 0);
 	display.setTextColor(WHITE, BLACK);
 
-#ifdef LCD
-	display.display();
-#endif
-
+	#ifdef LCD
+		display.display();
+	#endif
 }
 
 void sendToGoogle(Payload stcData)
 {
-	//static int oldseconds = 0;
+	int latint = (int)stcData.latitude;
+	int latdec = (stcData.latitude * 10000) - (latint * 10000);
+	int lonint = (int)stcData.longitude;
+	int londec = (stcData.longitude * 10000) - (lonint * 10000);
 
-	//if (stcData.seconds != oldseconds) // if data is being received from GPS
-	//{
-	//	oldseconds = stcData.seconds;
+	// Convert altitude to a string
+	char falt[8];
+	dtostrf(stcData.altitude, 4, 1, falt);
 
-		int latint = (int)stcData.latitude;
-		int latdec = (stcData.latitude * 10000) - (latint * 10000);
-		int lonint = (int)stcData.longitude;
-		int londec = (stcData.longitude * 10000) - (lonint * 10000);
+	// Convert speed to a string
+	char fspeed[8];
+	dtostrf(stcData.groundspeed, 4, 2, fspeed);
 
-		// Convert altitude to a string
-		char falt[8];
-		dtostrf(stcData.altitude, 4, 1, falt);
+	// Convert track to a string
+	char ftrack[8];
+	dtostrf(stcData.track, 4, 2, ftrack);
 
-		// Convert speed to a string
-		char fspeed[8];
-		dtostrf(stcData.groundspeed, 4, 2, fspeed);
+	// Convert HDOP to a string
+	char fHDOP[4];
+	dtostrf(stcData.HDOP, 1, 2, fHDOP);
 
-		// Convert track to a string
-		char ftrack[8];
-		dtostrf(stcData.track, 4, 2, ftrack);
+	// Convert geoid height to a string
+	char fgeoh[8];
+	dtostrf(stcData.geoidheight, 4, 1, fgeoh);
 
-		// Convert HDOP to a string
-		char fHDOP[4];
-		dtostrf(stcData.HDOP, 1, 2, fHDOP);
+	//$GPGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,*47
+	char *j = gpsstr1;
+	j += sprintf(j, "GPGGA,");
+	j += sprintf(j, "%.2d%.2d%.2d.000,", stcData.hour, stcData.minute, stcData.seconds, stcData.miliseconds); //123519 Fix taken at 12:35 : 19 UTC
+	j += sprintf(j, "%.4d.%.4d,%c,", latint, latdec, stcData.lat); // 4807.038,N Latitude 48 deg 07.038' N
+	j += sprintf(j, "%.5d.%.4d,%c,", lonint, londec, stcData.lon); // 4807.038,N Latitude 48 deg 07.038' N
+	j += sprintf(j, "1,");                    //   1 Fix quality : 1 - Must always be 1 or we wouldn't be here
+	j += sprintf(j, "%.2d,", stcData.satellites);        //   08           Number of satellites being tracked
+	j += sprintf(j, "%s,", fHDOP);
+	j += sprintf(j, "%s,M,", falt);       //   545.4, M      Altitude, Meters, above mean sea level
+	j += sprintf(j, "%s,M,,", fgeoh); // Geoid height
 
-		// Convert geoidheight to a string
-		char fgeoh[8];
-		dtostrf(stcData.geoidheight, 4, 1, fgeoh);
-
-		//$GPGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,*47
-		char *j = gpsstr1;
-		j += sprintf(j, "GPGGA,");
-		j += sprintf(j, "%.2d%.2d%.2d.000,", stcData.hour, stcData.minute, stcData.seconds, stcData.miliseconds); //123519 Fix taken at 12:35 : 19 UTC
-		j += sprintf(j, "%.4d.%.4d,%c,", latint, latdec, stcData.lat); // 4807.038,N Latitude 48 deg 07.038' N
-		j += sprintf(j, "%.5d.%.4d,%c,", lonint, londec, stcData.lon); // 4807.038,N Latitude 48 deg 07.038' N
-		j += sprintf(j, "1,");                    //   1 Fix quality : 1 - Must always be 1 or we wouldn't be here
-		j += sprintf(j, "%.2d,", stcData.satellites);        //   08           Number of satellites being tracked
-		j += sprintf(j, "%s,", fHDOP);
-		j += sprintf(j, "%s,M,", falt);       //   545.4, M      Altitude, Meters, above mean sea level
-		j += sprintf(j, "%s,M,,", fgeoh); // Geoid height
-
-		char hexCS1[2];
-		sprintf(hexCS1, "%02X", checksum(gpsstr1));
-		//Serial.print("$"); Serial.print(gpsstr1); Serial.print("*"); Serial.println(hexCS1);
+	char hexCS1[2];
+	sprintf(hexCS1, "%02X", checksum(gpsstr1));
+	Serial.print("$"); Serial.print(gpsstr1); Serial.print("*"); Serial.println(hexCS1);
 		
-		//$GPRMC,233913.000,A,3842.9618,N,00916.8614,W,0.50,50.58,180216,,,A*4A
-		char *k = gpsstr2;
-		k += sprintf(k, "GPRMC,");
-		k += sprintf(k, "%.2d%.2d%.2d.000,", stcData.hour, stcData.minute, stcData.seconds, stcData.miliseconds);
-		k += sprintf(k, "A,"); // A = OK
-		k += sprintf(k, "%.4d.%.4d,%c,", latint, latdec, stcData.lat); // 4807.038,N Latitude 48 deg 07.038' N
-		k += sprintf(k, "%.5d.%.4d,%c,", lonint, londec, stcData.lon); // 4807.038,N Latitude 48 deg 07.038' N
-		k += sprintf(k, "%s,", fspeed);
-		k += sprintf(k, "%s,", ftrack);
-		k += sprintf(k, "%.2d%.2d%.2d,,,A", stcData.day, stcData.month, stcData.year);
+	//$GPRMC,233913.000,A,3842.9618,N,00916.8614,W,0.50,50.58,180216,,,A*4A
+	char *k = gpsstr2;
+	k += sprintf(k, "GPRMC,");
+	k += sprintf(k, "%.2d%.2d%.2d.000,", stcData.hour, stcData.minute, stcData.seconds, stcData.miliseconds);
+	k += sprintf(k, "A,"); // A = OK
+	k += sprintf(k, "%.4d.%.4d,%c,", latint, latdec, stcData.lat); // 4807.038,N Latitude 48 deg 07.038' N
+	k += sprintf(k, "%.5d.%.4d,%c,", lonint, londec, stcData.lon); // 4807.038,N Latitude 48 deg 07.038' N
+	k += sprintf(k, "%s,", fspeed);
+	k += sprintf(k, "%s,", ftrack);
+	k += sprintf(k, "%.2d%.2d%.2d,,,A", stcData.day, stcData.month, stcData.year);
 
-		char hexCS2[2];
-		sprintf(hexCS2, "%02X", checksum(gpsstr2));
-		//Serial.print("$"); Serial.print(gpsstr2); Serial.print("*"); Serial.println(hexCS2);
-	//}	
-
-	
+	char hexCS2[2];
+	sprintf(hexCS2, "%02X", checksum(gpsstr2));
+	Serial.print("$"); Serial.print(gpsstr2); Serial.print("*"); Serial.println(hexCS2);
 }
 
 /*
