@@ -11,23 +11,24 @@
 // **********************************************************************************************************
 
 /*
-* version 1.2.0
-* 
-* date 2016.06.29 Edited by Pedro Albuquerque
-* Requirements:
-*	GPSMath.h
-*/
+version V1.2.0
 
-/*
-* version V1.2.0
-* date: 2016.07.01 edited by Pedro Albuquerque
-* date: 2016.06.26 Edited by Luis rodrigues
-* date: 2016.06.14 Created by Pedro Albuquerque
-
-	button speed reaction improvement
+	Changes:
+ date: 2016.07.04 Edited by Luis Rodrigues:
+		- send to Google function reactivated on menu 2
+		- removed all bounce2 library references
+		- added some source references to the libraries include list
+		- removed all references to the bounce2 library
+		- cleaned old EEPROM references
+ date: 2016.07.01 Edited by Pedro Albuquerque
+ date: 2016.06.29 Edited by Pedro Albuquerque
+		- GPSMath.h included to allow GPS calculations
+ date: 2016.06.26 Edited by Luis rodrigues
+ date: 2016.06.14 Created by Pedro Albuquerque
+		-	button speed reaction improvement
 
 	To Do:
-	- include a GPS module on GS to permamnently assist on plane recue
+	- include a GPS module on GS to assist on plane rescue
 	- include a function send a command to activate a buzzer on RS to improve plane detection
 
 */
@@ -35,31 +36,26 @@
 #define VERSION "GS LR MEGA V1.2.0"
 
 //#include <arduino.h>
-#include <SPIFlash.h>
-#include <SPI.h>
-#include <RH_RF95.h> //Required for the LORA Radios
-#include <Adafruit_GFX.h> //Required for the Nokia 5110 LCD and ST7735 TFT display
-#include <Bounce2.h> //To handle buttons debounce
-#include <FlashLogM.h> //To handle the Flash log
-#include <math.h>
-#include <GPSMath.h>
+#include <SPIFlash.h> //Arduino/Moteino library for read/write access to SPI flash memory chips. https://github.com/LowPowerLab/SPIFlash
+#include <SPI.h> //Arduino native SPI library
+#include <RH_RF95.h> //Required for the LORA Radios http://www.airspayce.com/mikem/arduino/RadioHead/
+#include <Adafruit_GFX.h> //Required for the Nokia 5110 LCD and ST7735 TFT display https://github.com/adafruit/Adafruit-GFX-Library
+#include <FlashLogM.h> //To handle the Flash log https://github.com/Pedroalbuquerque/FlashLogM
+#include <math.h> //Arduino native math library
+#include <GPSMath.h> //To handle all GPS calculations https://github.com/Pedroalbuquerque/GPSMath
 
 //************************* DEFINITIONS ****************************
 #define FREQUENCY 434 //Match with the correct radio frequency of the other radio
-#define SERIAL_BAUD 115200 //To comunicate with serial monitor for debug
+#define SERIAL_BAUD 115200 //To communicate with serial monitor for debug
 #define BUTPIN1 A7 //Analog pin assigned to FIX button
 #define BUTPIN2 A6 //Analog pin assigned to MENUS SCROLL button
 #define MPAGES 8 //Number of menu pages
-#define GOOGLEMAPS //Uncomment to have google info sent trough the Serial port on menu 2
+#define GOOGLEMAPS //Uncomment to have Google info sent trough the Serial port on menu 2
 //#define TFT_ILI9340 //Uncomment to use Adafruit 2.2" TFT display
-//#define LCD // uncomment to use LCD display
+//#define LCD // uncomment to use NOKIA LCD display
 #define TFT_ST7735 //Uncomment if you use the Seed Studio TFT 1.8"
 //#define DEBUG //Uncomment to activate Serial Monitor Debug
-//#define EEPROM_SIZE 1024
-//#define FLASH_SS 8 // FLASH SS enable pin is on D8
-//#define FLASH_MAXADR  524288  // SPI flash = 4Mb = 512KB = 524288 B
 //#define BUZZER // Comment if a buzzer is installed
-//#define LCD //Uncomment if you use the NOKIA LCD
 
 
 //**************************INITIATE HARDWARE*************************
@@ -110,7 +106,7 @@
 
 	#include <Adafruit_ST7735.h> //Required for OLED LCD
 	// pin definition for ITDB02-1.8 TFT display from ITEAD STUDIO
-	// assuming the use of moteino (several pins are reserved)
+	// assuming the use of Moteino (several pins are reserved)
 	#define RST  1 //A5 //18
 	#define RS   0 //A4 //19
 	#define SDA  A2 //20
@@ -128,7 +124,7 @@
 	#define CHARHEIGHT 8
 	#define SCRROTATION 1 // 90 deg rotation
 	#define CHARSCALE 1
-	#define SCRLINES 14   // 20 Lines or 27 charactares / CHARSCALE
+	#define SCRLINES 14   // 20 Lines or 27 characters / CHARSCALE
 	#define SCRCHARS 25   // 21 characters or 16 lines /CHARSCALE
 
 
@@ -153,7 +149,7 @@
 	#define DC 1	//A4 //Data Chip
 	#define RST 0	//A5 //Reset
 
-	//Screen size defenition
+	//Screen size definitions
 	#define SCRPIXELX 320
 	#define SCRPIXELY 240
 
@@ -162,7 +158,7 @@
 	#define CHARHEIGHT 8
 	#define SCRROTATION 1 // 90º rotation
 	#define CHARSCALE 2
-	#define SCRLINES 14   // 20 Lines or 27 charactares / CHARSCALE
+	#define SCRLINES 14   // 20 Lines or 27 characters / CHARSCALE
 	#define SCRCHARS 25   // 21 characters or 16 lines /CHARSCALE
 
 	//Adaruit_ILI9340 display = Adafruit_ILI9340(CS, DC, MOSI, SCL, RST, MISO); //For Software SPI
@@ -184,10 +180,6 @@ FlashLogM mylog;
 //Initialize the radio instance
 RH_RF95 radio;
 
-//Initialize press buttons instances B1 and B2	and instantiate a Bounce object for each button
-Bounce debouncer1 = Bounce();
-Bounce debouncer2 = Bounce();
-
 // variables setup
 char input = 0;
 
@@ -201,7 +193,7 @@ bool fixinMem = 0; //variable holding fix in memory condition
 bool kmflag = 0; //if distance is > 1000m, display in Km
 bool kmflagmem = 0; //hold the previous kmflag status
 byte menuPage = 1; //hold the actual page number on the menu
-long int homeazim = 0; //variable to hold azimute from GPS position to home
+long int homeazim = 0; //variable to hold azimuth from GPS position to home
 long int homealt = 0; //Variable to hold Home altitude (FIX)
 long int maxalt = 0; //variable to hold max Altitude
 long int homedist = 0; //variable to hold distance to home always in mt
