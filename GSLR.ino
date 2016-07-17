@@ -10,8 +10,14 @@
 // **********************************************************************************************************
 
 /*
-version V1.2.0
+version V1.3.0
 Changes:
+date: 2016.07.16 Edited by Luis Rodrigues
+- Adafruit 2.4" TFT display with touchscreen added
+date: 2016.07.13 Edited by Luis Rodrigues:
+- changed the radio handling to LORA with Reliable Datagram
+- remote station battery is now displayed
+- committed to always using the interrupt for the GPS
 date: 2016.07.04 Edited by Luis Rodrigues:
 - send to Google function reactivated on menu 2
 - removed all bounce2 library references
@@ -30,7 +36,8 @@ To Do:
 */
 
 
-#include <arduino.h>
+#include <RHReliableDatagram.h> //http://www.airspayce.com/mikem/arduino/RadioHead/RadioHead-1.61.zip
+//#include <arduino.h> // uncomment if using ATOM editor
 #include <SPIFlash.h> //Arduino/Moteino library for read/write access to SPI flash memory chips. https://github.com/LowPowerLab/SPIFlash
 #include <SPI.h> //Arduino native SPI library
 #include <RH_RF95.h> //Required for the LORA Radios http://www.airspayce.com/mikem/arduino/RadioHead/
@@ -38,34 +45,103 @@ To Do:
 #include <FlashLogM.h> //To handle the Flash log https://github.com/Pedroalbuquerque/FlashLogM
 #include <math.h> //Arduino native math library
 #include <GPSMath.h> //To handle all GPS calculations https://github.com/Pedroalbuquerque/GPSMath
-#include <Adafruit_GPS.h>
+#include <Adafruit_GPS.h> //https://github.com/adafruit/Adafruit_GPS/archive/master.zip
+
 
 //************************* DEFINITIONS ****************************
 
-#define VERSION "GS LR MEGA V1.2.0"
+// Adaruit 2.4 TFT with touchscreen
+// For the Moteino Mega, use digital Analog pins A0 through A7
+//   D0 connects to analog pin A0
+//   D1 connects to analog pin A1
+//   D2 connects to analog pin A2
+//   D3 connects to analog pin A3
+//   D4 connects to analog pin A4
+//   D5 connects to analog pin A5
+//   D6 connects to analog pin A6
+//   D7 connects to analog pin A7
+#define YP A0
+#define XM A1
+#define YM A2
+#define XP A3
+
+#define VERSION "GS LR MEGA V1.3.0"
 #define FREQUENCY 434 //Match with the correct radio frequency of the other radio
 #define SERIAL_BAUD 115200 //To communicate with serial monitor for debug
-#define BUTPIN1 A7 //Analog pin assigned to FIX button
-#define BUTPIN2 A6 //Analog pin assigned to MENUS SCROLL button
+#define BUTPIN1 12 //Analog pin assigned to FIX button
+#define BUTPIN2 13 //Analog pin assigned to MENUS SCROLL button
 #define MPAGES 8 //Number of menu pages
 #define GOOGLEMAPS //Uncomment to have Google info sent trough the Serial port on menu 2
+#define TFT_TOUCH_9341
 //#define TFT_ILI9340 //Uncomment to use Adafruit 2.2" TFT display
 //#define LCD // uncomment to use NOKIA LCD display
-#define TFT_ST7735 //Uncomment if you use the Seed Studio TFT 1.8"
+//#define TFT_ST7735 //Uncomment if you use the Seed Studio TFT 1.8"
 //#define DEBUG //Uncomment to activate Serial Monitor Debug
-//#define BUZZER // Comment if a buzzer is installed
+#define BUZZER // Comment if a buzzer is installed
 
+#define CLIENT_ADDRESS 2
+#define SERVER_ADDRESS 1
 
 //**************************INITIATE HARDWARE*************************
 
 #ifdef BUZZER
-	#define BUZZ A6 //Buzzer output pin
+	#define BUZZ 14 //Buzzer output pin
 #endif
 
 #ifdef __AVR_ATmega1284P__
 	#define LED           15 // Moteino MEGAs have LEDs on D15
 #else
 	#define LED           9 // Moteinos have LEDs on D9
+#endif
+
+#ifdef TFT_TOUCH_9341
+
+	#include <Adafruit_TFTLCD.h>
+	#include <TouchScreen.h>
+
+	#define YP A0  // must be an analog pin, use "An" notation!
+	#define XM A1  // must be an analog pin, use "An" notation!
+	#define YM A2  // can be a digital pin
+	#define XP A3   // can be a digital pin
+
+	#define TS_MINX 150
+	#define TS_MINY 120
+	#define TS_MAXX 920
+	#define TS_MAXY 940
+	
+TouchScreen ts = TouchScreen(XP, YP, XM, YM, 300);
+
+	#define LCD_CS 18
+	#define LCD_CD 19
+	#define LCD_WR 20
+	#define LCD_RD 21
+	// optional
+	#define LCD_RESET 0
+
+	// Assign human-readable names to some common 16-bit color values:
+	#define	BLACK   0x0000
+	#define	BLUE    0x001F
+	#define	RED     0xF800
+	#define	GREEN   0x07E0
+	#define CYAN    0x07FF
+	#define MAGENTA 0xF81F
+	#define YELLOW  0xFFE0
+	#define WHITE   0xFFFF
+	#define ORANGE  0xFC00
+
+	// character size from Adafruit_GXF lib
+	#define CHARWIDTH 6
+	#define CHARHEIGHT 8
+	#define SCRROTATION 0 // 90º rotation
+	#define CHARSCALE 2
+	#define SCRLINES 10   // 20 Lines or 27 characters / CHARSCALE
+	#define SCRCHARS 25   // 21 characters or 16 lines /CHARSCALE
+
+	Adafruit_TFTLCD display(LCD_CS, LCD_CD, LCD_WR, LCD_RD, LCD_RESET);
+
+	#define BOXSIZE 120
+#else
+
 #endif
 
 #ifdef LCD
@@ -131,7 +207,7 @@ To Do:
 
 #ifdef TFT_ILI9340
 
-	#include <Adafruit_ILI9340.h> //Library required to handle the TFT I2C with the radio interrupts
+	#include <Adafruit_ILI9340_PA.h> //Library required to handle the TFT I2C with the radio interrupts
 
 	// pin definition for FT_ILI9340 ADAFRUIT TFT display
 	#define SCL 7 //Clock
@@ -167,8 +243,11 @@ To Do:
 	//Define GPS information LOG received from RS using SPI Flash Memory
 FlashLogM mylog;
 
-//Initialize the radio instance
-RH_RF95 radio;
+//Initialize the generic radio driver instance
+RH_RF95 driver;
+
+// Class to manage message delivery and receipt, using the driver declared above
+RHReliableDatagram manager(driver, SERVER_ADDRESS);
 
 // variables setup
 char input = 0;
@@ -182,6 +261,8 @@ int level = 0;
 bool fixinMem = 0; //variable holding fix in memory condition
 bool kmflag = 0; //if distance is > 1000m, display in Km
 bool kmflagmem = 0; //hold the previous kmflag status
+bool button1 = 0;
+bool button2 = 0;
 byte menuPage = 1; //hold the actual page number on the menu
 long int homeazim = 0; //variable to hold azimuth from GPS position to home
 long int homealt = 0; //Variable to hold Home altitude (FIX)
@@ -234,11 +315,12 @@ struct Payload
 	float latitudedeg;
 	float longitudedeg;
 	bool fix; // FIX 1/0
+	float batteryVolts;
 };
 Payload Data;
 
 Payload GS_GPS; // struct to hold last good position from GS GPS
-Payload RS_GPS; // struct to hold last good position from RS GPS, this cold be tha last save position on LOG
+Payload RS_GPS; // struct to hold last good position from RS GPS, this cold be the last save position on LOG
 
 
 // Menu navigation and Warning messages vars and constants
@@ -264,7 +346,6 @@ char strtmp[40];  // to support float to string conversion or other string manip
 
 Adafruit_GPS GPS(&Serial1); // connect GPS to serial 1 GPS_TX on pin10 GPS_RX on pin 11
 #define GPS_BAUD 9600
-boolean usingInterrupt = false;
 
 // Function declaration if using Visual studio IDE
 #define VISUALSTD
@@ -282,28 +363,40 @@ boolean usingInterrupt = false;
 	char* fill(char* str, int length, char charcode, bool initialize);
 	uint8_t setflag(uint8_t flagContainer, uint8_t flag, bool set);
 	void sendToGoogle(Payload stcData);
-	void useInterrupt(boolean v);
 #endif
 
 
 void setup()
 {
-	// initilize Serial port for debugging
+	// initialize Serial port for debugging
 	Serial.begin(SERIAL_BAUD); //Initialize the Serial port at the specified baud rate
-	Serial.println("GPS AND TELEMETRY MODULE");
+	Serial.println F("GPS AND TELEMETRY MODULE");
 	Serial.println(VERSION);
-	Serial.println("Initializing...");
+	Serial.println F("Initializing...");
+
+	if (manager.init())
+	{
+		driver.setFrequency(434);
+	}
+	else
+	{
+		Serial.println F("init failed");
+		// Defaults after init are 434.0MHz, 13dBm, Bw = 125 kHz, Cr = 4/5, Sf = 128chips/symbol, CRC on
+	}
 
 	// initialize GPS
 	GPS.begin(GPS_BAUD);
-	useInterrupt(true);
-
+	// Enable interrupts on Timer0 for GPS
+	// Timer0 is already used for millis() - we'll just interrupt somewhere
+	// in the middle and call the "Compare A" function
+	OCR0A = 0xAF;
+	TIMSK0 |= _BV(OCIE0A);
 
 	// ### Initialize push-buttons
-	pinMode(BUTPIN1, INPUT_PULLUP);	// Setup the first button with an internal pull-up
-	pinMode(BUTPIN2, INPUT_PULLUP);	// Setup the second button with an internal pull-up
+	pinMode(BUTPIN1, INPUT_PULLUP); // Setup the first button with an internal pull-up
+	pinMode(BUTPIN2, INPUT_PULLUP); // Setup the second button with an internal pull-up
 
-	#ifdef LCD
+		#ifdef LCD
 		pinMode(PIN_LCD_LIGHT, OUTPUT); //LCD backlight, LOW = backlight ON
 	#endif
 
@@ -316,6 +409,40 @@ void setup()
 	SPI.usingInterrupt(digitalPinToInterrupt(2));
 
 	// ### Initialize  display
+
+	#ifdef TFT_TOUCH_9341
+		display.reset();
+		uint16_t identifier = display.readID();
+		if (identifier == 0x9341)
+		{
+			display.begin(identifier);
+			display.fillScreen(BLACK);
+			display.setTextSize(CHARSCALE);
+			display.setRotation(SCRROTATION);
+			display.setTextColor(WHITE, BLACK);
+			display.setTextWrap(true);
+			displaySetCursor(2, 0);
+			display.println(F("GPS TELEMETRY"));
+			display.println(F("Ver:")); display.println(VERSION);
+			delay(3000);
+			displaySetCursor(8, 0);
+			display.setTextColor(WHITE);  display.setTextSize(2);
+			display.println("    Please wait...");
+			display.println("   Analizing LOG...");
+
+		}
+		else
+		{
+			Serial.print(F("Unknown LCD driver chip: "));
+			Serial.println(identifier, HEX);
+			return;
+		}
+				
+		#define MINPRESSURE 10
+		#define MAXPRESSURE 1000
+
+	#endif
+
 	#ifdef LCD // display SETUP (Nokia LCD)
 		display.begin();
 		displayReset(); //Cleanup the LCD
@@ -343,43 +470,76 @@ void setup()
 		Serial.println("TFT Display ILI9340 - initialized");
 	#endif
 
-	// ### Initialize Radio
-	if (!radio.init())
-		Serial.println("Init failed!");
-	else { Serial.print("Init OK - "); Serial.print(FREQUENCY); Serial.println("Mhz"); }
-	// Defaults after init are 434.0MHz, 13dBm, Bw = 125 kHz, Cr = 4/5, Sf = 128chips/symbol, CRC on
-	radio.setFrequency(FREQUENCY);
-
 	// ### Initialize Log
 
 	// initialize log variables to start write and read
 	mylog.initialize(Data);
-	Serial.println("Log data initialized");
-	Serial.print("Log next write addr:"); Serial.println(mylog.nextWrite);
-	Serial.print("Log next read addr:"); Serial.println(mylog.nextRead);
-	Serial.print("Log # records saved:"); Serial.println(mylog.numRecords);
+	Serial.println F("Log data initialized");
+	Serial.print F("Log next write addr:"); Serial.println(mylog.nextWrite);
+	Serial.print F("Log next read addr:"); Serial.println(mylog.nextRead);
+	Serial.print F("Log # records saved:"); Serial.println(mylog.numRecords);
 
 	// load menu screen on LCD/TFT
 	displaymenu(menuPage, false); //Start menu display (menu page number, screen refresh requirement)
 
-	Serial.println("Setup finished");
+	Serial.println F("Setup finished");
 
 	timerLink = millis(); //Initialize Data link loss timeout timer variable
 }
 
 void loop()
 {
+	makeHeader();
+	#ifdef TFT_TOUCH_9341
+
+		TSPoint p = ts.getPoint();
+		pinMode(XM, OUTPUT);
+		pinMode(YP, OUTPUT);
+
+		if (p.z > MINPRESSURE && p.z < MAXPRESSURE)
+		{
+		
+			// scale from 0->1023 to tft.width
+			p.x = (map(p.x, TS_MINX, TS_MAXX, display.width(), 0)) - 5;
+			p.y = (map(p.y, TS_MINY, TS_MAXY, display.height(), 0)) - 15;
+
+			if (p.y > 200)
+			{
+				if (p.x < BOXSIZE) {
+					#ifdef BUZZER
+						Blink(BUZZ, 5);
+					#endif
+						button1 = 1;
+				}
+				else if (p.x < BOXSIZE * 2) {
+					button2 = 1;
+				}
+			}
+		}
+	#endif
+
 	if (!digitalRead(BUTPIN1))  // process button 1 if pressed - Menu navigation
+		button1 = 1;
+	else if (!digitalRead(BUTPIN2))
+		button2 = 1;
+
+	
+	if (button1 == 1)  // process button 1 if pressed - Menu navigation
 	{
+		button1 = 0;
 		changeMenu();
 		displaymenu(menuPage, true);
 		warningLevel = setflag(warningLevel, 0xFF, FLAGRESET); // reset all warning to force re-evaluation
 	}
-	if (!digitalRead(BUTPIN2))// process button 2 if pressed - Function within Menu
+	if (button2 == 1)// process button 2 if pressed - Function within Menu
 	{
+		button2 = 0;
 		switch (menuPage)
 		{
 		case 1: // Navigate
+		#ifdef BUZZER
+			Blink(BUZZ, 5);
+		#endif
 			fixposition();
 			break;
 		case 2: // GPS info
@@ -406,6 +566,9 @@ void loop()
 			#endif
 			break;
 		case 7: // LOG erase
+			#ifdef BUZZER
+				Blink(BUZZ, 10);
+			#endif
 			displaySetCursor(1, 0); display.print(fill(strPRT, SCRCHARS, ' ', true));
 			displaySetCursor(2, 0); display.print(fill(strPRT, SCRCHARS, ' ', true));
 			displaySetCursor(3, 0); display.print(fill(strPRT, SCRCHARS, ' ', true));
@@ -415,6 +578,9 @@ void loop()
 			break;
 		case 8: // dump log to Googlemaps
 			//  display some activity message
+			#ifdef BUZZER
+				Blink(BUZZ, 10);
+			#endif
 			displaySetCursor(1, 0); display.print(fill(strPRT, SCRCHARS, ' ', true));
 			displaySetCursor(2, 0); display.print(fill(strPRT, SCRCHARS, ' ', true));
 			displaySetCursor(3, 0); display.print(fill(strPRT, SCRCHARS, ' ', true));
@@ -422,7 +588,7 @@ void loop()
 			uint16_t logStart = mylog.nextRead;
 			Payload logData;
 
-			Serial.println("\n********   Log dump ********");
+			Serial.println F("\n********   Log dump ********");
 			// Read data from log and send it to Google as data is read
 			noInterrupts(); // so that no additional log data is saved
 			for (uint16_t i = 1; i < mylog.numRecords; i++)
@@ -440,43 +606,45 @@ void loop()
 		#endif
 		warningLevel = setflag(warningLevel, 0xFF, FLAGRESET); // reset all warning to force re-evaluation
 	}
+	
 
 	// check radio reception and process if data is available
 	if (timerLink > millis()) timerLink = millis();
-	if (radio.available()) //If some packet was received by the radio, wait for all its contents to come trough
+	if (manager.available()) //If some packet was received by the radio, wait for all its contents to come trough
 	{
 		warningLevel = setflag(warningLevel, WRN_LINK, FLAGRESET); // clear Link flag
 
 		uint8_t len = sizeof(Data);
+		uint8_t from;
 
-		if (radio.recv((uint8_t *)&Data, &len))
+		if (manager.recvfromAck((uint8_t *)&Data, &len, &from))
+
 		{
 			timerLink = millis(); //Set a counter for data link loss timeout calculation
-			rssi = radio.lastRssi(); //RSSI;
 
-																												// if GPS fix acquired
-			if (Data.fix == 1)
+	
+			rssi = driver.lastRssi();	//RSSI;
+
+
+			if (Data.fix == 1)	// if GPS fix acquired
 			{
 				if (fixinMem == 0) fixposition();
-				fixinMem = 1;
+					fixinMem = 1;
 
 				warningLevel = setflag(warningLevel, WRN_FIX, FLAGRESET);
 
-				kmflag = GPSDist(homelat, homelon, Data.latitudedeg, Data.longitudedeg, &homedist, &homeazim); // Run the distance calculating function, passing the memorized position as arguments
+				// Run the distance calculating function, passing the memorized position as arguments
+				kmflag = GPSDist(homelat, homelon, Data.latitudedeg, Data.longitudedeg, &homedist, &homeazim); 
 
-																																																																																																			// check maximum altitude
-				if (Data.altitude > maxalt + homealt)
-				{
+
+				if (Data.altitude > maxalt + homealt)	// check maximum altitude
 					maxalt = Data.altitude - homealt;
-				}
-				// check maximum distance
-				if (kmflag == 0)
+
+				if (kmflag == 0)	// check maximum distance
 				{
 					kmflagmem = kmflag;
 					if (homedist > maxdist)
-					{
 						maxdist = homedist;
-					}
 				}
 				else
 				{
@@ -486,29 +654,22 @@ void loop()
 						maxdist = homedist;
 					}
 					else if (homedist > maxdist)
-					{
 						maxdist = homedist;
-					}
 				}
 
 				//check maximum speed
 				if (Data.groundspeed*1.852 < 1)
-				{
 					Data.groundspeed = 0;
-				}
 				if (Data.groundspeed*1.852 > highspeed)
-				{
 					highspeed = Data.groundspeed*1.852;
-				}
 			}
 			else
-			{
 				warningLevel = setflag(warningLevel, WRN_FIX, FLAGSET);
-			}
+
 			// save data just received to Log memory
 			mylog.saveData(Data);
 			#ifdef GOOGLEMAPS
-						sendToGoogle(Data);
+				sendToGoogle(Data);
 			#endif
 			displaymenu(menuPage, false); // update menu info (menu page number, screen refresh)
 		}
@@ -520,19 +681,20 @@ void loop()
 		{
 			warningLevel = setflag(warningLevel, WRN_LINK, FLAGSET);  // set LINK flag
 			#ifdef BUZZER
-						newbuzztimer = millis();
-						if (newbuzztimer > (oldbuzztimer + 2000))
-						{
-							oldbuzztimer = newbuzztimer;
-							Blink(BUZZ, 5);
-							delay(100);
-							Blink(BUZZ, 5);
-						}
+				newbuzztimer = millis();
+				if (newbuzztimer > (oldbuzztimer + 2000))
+				{
+					oldbuzztimer = newbuzztimer;
+					Blink(BUZZ, 5);
+					delay(100);
+					Blink(BUZZ, 5);
+				}
 			#endif
 		}
 	}
 	// check Warnings
-	if (millis() < timerWarning) timerWarning = millis(); // if millis() wrap around reinitialize timer
+	if (millis() < timerWarning)
+		timerWarning = millis(); // if millis() wrap around reinitialize timer
 	if (millis() > timerWarning + 2000)
 	{
 		displaywarning(warningLevel);
@@ -561,11 +723,52 @@ void loop()
 
 	}
 	*/
+
 }
 
 //----------------------------------------------------------------------//
 //                             FUNCTIONS                                //
 //----------------------------------------------------------------------//
+
+void makeHeader()
+{
+	if (Data.batteryVolts < 3.2)
+	{
+		display.fillRect(204, 0, 14, 12, RED);
+		display.drawRect(204, 0, 14, 12, BLACK);
+		display.fillRect(216, 0, 14, 12, BLACK);
+		display.drawRect(216, 0, 14, 12, BLACK);
+		display.fillRect(228, 0, 14, 12, BLACK);
+		display.drawRect(228, 0, 14, 12, BLACK);
+	}
+	else if (Data.batteryVolts >= 3.2 & Data.batteryVolts < 3.6)
+	{
+		display.fillRect(204, 0, 14, 12, YELLOW);
+		display.drawRect(204, 0, 14, 12, BLACK);
+		display.fillRect(216, 0, 14, 12, YELLOW);
+		display.drawRect(216, 0, 14, 12, BLACK);
+		display.fillRect(228, 0, 14, 12, BLACK);
+		display.drawRect(228, 0, 14, 12, BLACK);
+	}
+	else
+	{
+		display.fillRect(204, 0, 14, 12, GREEN);
+		display.drawRect(204, 0, 14, 12, BLACK);
+		display.fillRect(216, 0, 14, 12, GREEN);
+		display.drawRect(216, 0, 14, 12, BLACK);
+		display.fillRect(228, 0, 14, 12, GREEN);
+		display.drawRect(228, 0, 14, 12, BLACK);
+	}
+	display.setCursor(90, 0);
+	if (Data.hour < 10)
+		display.print("0");
+	display.print(Data.hour);
+	display.print(":");
+	if (Data.minute < 10)
+		display.print("0");
+	display.print(Data.minute);
+	display.drawLine(0, 20, 240, 20, RED);
+}
 
 
 uint8_t setflag(uint8_t flagContainer, uint8_t flag, bool set)
@@ -604,16 +807,33 @@ void Blink(byte PIN, int DELAY_MS)//The BUZZ Blinking function
 }
 #endif
 
-void displayReset()
-{
-	display.fillScreen(BLACK);
-	display.setTextSize(CHARSCALE);
-	display.setRotation(SCRROTATION);
-	display.setTextColor(WHITE, BLACK);
-	display.setTextWrap(true);
-	display.setCursor(0, 0);
-	return;
-}
+	void displayReset()
+	{
+		display.fillScreen(BLACK);
+
+		display.fillRect(0, 200, BOXSIZE, BOXSIZE, RED);
+		display.drawRect(0, 200, BOXSIZE, BOXSIZE, WHITE);
+
+		display.fillRect(BOXSIZE, 200, BOXSIZE, BOXSIZE, YELLOW);
+		display.drawRect(BOXSIZE, 200, BOXSIZE, BOXSIZE, WHITE);
+
+		displaySetCursor(16, 4);
+		display.setTextColor(WHITE);  display.setTextSize(4);
+		display.println("B1");
+
+		displaySetCursor(16, 14);
+		display.setTextColor(BLUE);  display.setTextSize(4);
+		display.println("B2");
+
+
+		display.setTextSize(CHARSCALE);
+		display.setRotation(SCRROTATION);
+		display.setTextColor(WHITE, BLACK);
+		display.setTextWrap(true);
+		display.setCursor(0, 0);
+		return;
+	}
+
 
 void displaySetCursor(int line, int column)
 {
@@ -649,7 +869,6 @@ void logposition(float loglat, float loglong)
 
 void displaymenu(byte menuPage, bool forceRepaint)
 {
-	//Serial.print("Menu:"); Serial.println(menuPage);
 
 	static byte lastmenu;  //remember last menu for paint or refresh
 
@@ -661,18 +880,23 @@ void displaymenu(byte menuPage, bool forceRepaint)
 			{
 				lastmenu = menuPage;
 				displayReset();
-				displaySetCursor(0, 0); display.print("1 - STATUS");
-				displaySetCursor(1, 0); sprintf(strPRT, "SAT:%i", Data.satellites); display.print(strPRT);
-				displaySetCursor(2, 0); sprintf(strPRT, "QUAL:%d", Data.fixquality); display.print(strPRT);
-				displaySetCursor(3, 0);  sprintf(strPRT, "HDOP:%s", dtostrf(Data.HDOP, 5, 2, strtmp)); display.print(strPRT);
-				displaySetCursor(4, 0); sprintf(strPRT, "RX_RSSI:%d", rssi); display.print(strPRT);
+				displaySetCursor(2, 0);
+				display.print("1 - STATUS");
+				displaySetCursor(3, 0); sprintf(strPRT, "SAT:%i", Data.satellites); display.print(strPRT);
+				displaySetCursor(4, 0); sprintf(strPRT, "QUAL:%d", Data.fixquality); display.print(strPRT);
+				displaySetCursor(5, 0); sprintf(strPRT, "HDOP:%s", dtostrf(Data.HDOP, 5, 2, strtmp)); display.print(strPRT);
+				displaySetCursor(6, 0); sprintf(strPRT, "RX_RSSI:%d", rssi); display.print(strPRT);
+				displaySetCursor(7, 0); sprintf(strPRT, "RS BAT:%s V", dtostrf(Data.batteryVolts, 4, 2, strtmp)); display.print(strPRT);
 			}
 			else // if already in menu, print just info to reduce screen flicker
 			{
-				displaySetCursor(1, 4); display.print(Data.satellites);
-				displaySetCursor(2, 5); display.print(Data.fixquality);
-				displaySetCursor(3, 5);  sprintf(strPRT, "%s", dtostrf(Data.HDOP, 5, 2, strtmp)); display.print(strPRT);
-				displaySetCursor(4, 8); display.print(rssi);
+				displaySetCursor(3, 4); 
+				display.print(Data.satellites);
+				displaySetCursor(4, 5);
+				display.print(Data.fixquality);
+				displaySetCursor(5, 5);  sprintf(strPRT, "%s", dtostrf(Data.HDOP, 5, 2, strtmp)); display.print(strPRT);
+				displaySetCursor(6, 8);	display.print(rssi);
+				displaySetCursor(7, 7); sprintf(strPRT, "%s", dtostrf(Data.batteryVolts, 4, 2, strtmp));	display.print(strPRT);
 			}
 			break;
 		}
@@ -683,25 +907,25 @@ void displaymenu(byte menuPage, bool forceRepaint)
 			{
 				lastmenu = menuPage;
 				displayReset();
-				displaySetCursor(0, 0); display.print("2 - INFO");
-				sprintf(strPRT, "ALT:%s m", dtostrf(Data.altitude - homealt, 4, 0, strtmp)); displaySetCursor(1, 0); display.print(strPRT);
-				sprintf(strPRT, "SPD:%s Km/h", dtostrf(Data.groundspeed*1.852, 4, 0, strtmp)); displaySetCursor(2, 0); display.print(strPRT);
-				sprintf(strPRT, "AZM:%s Deg", dtostrf(homeazim, 4, 0, strtmp)); displaySetCursor(3, 0); display.print(strPRT);
-				displaySetCursor(4, 0); sprintf(strPRT, "DST:%s", dtostrf(homedist, 4, 0, strtmp)); display.print(strPRT);
-				if (kmflag == 0) display.print("m"); else display.print("Km");
+				displaySetCursor(2, 0); display.print("2 - INFO");
+				sprintf(strPRT, "ALT:%s m", dtostrf(Data.altitude - homealt, 4, 0, strtmp)); displaySetCursor(3, 0); display.print(strPRT);
+				sprintf(strPRT, "SPD:%s Km/h", dtostrf(Data.groundspeed*1.852, 4, 0, strtmp)); displaySetCursor(4, 0); display.print(strPRT);
+				sprintf(strPRT, "AZM:%s Deg", dtostrf(homeazim, 4, 0, strtmp)); displaySetCursor(5, 0); display.print(strPRT);
+				displaySetCursor(6, 0); sprintf(strPRT, "DST:%s", dtostrf(homedist, 4, 0, strtmp)); display.print(strPRT);
+				if (kmflag == 0) display.print(" m "); else display.print(" Km");
 				display.setTextSize(CHARSCALE + 2);
-				displaySetCursor(5, 0); sprintf(strPRT, "%s Km/h", dtostrf(highspeed, 1, 0, strtmp)); display.print(strPRT);
+				displaySetCursor(8, 0); sprintf(strPRT, "%s Km/h", dtostrf(highspeed, 1, 0, strtmp)); display.print(strPRT);
 				display.setTextSize(CHARSCALE);
 			}
 			else
 			{
-				sprintf(strPRT, "%s m      ", dtostrf(Data.altitude - homealt, 4, 0, strtmp)); displaySetCursor(1, 4); display.print(strPRT);
-				sprintf(strPRT, "%s Km/h      ", dtostrf(Data.groundspeed*1.852, 4, 0, strtmp)); displaySetCursor(2, 4); display.print(strPRT);
-				sprintf(strPRT, "%s Deg      ", dtostrf(homeazim, 4, 0, strtmp)); displaySetCursor(3, 4); display.print(strPRT);
-				displaySetCursor(4, 4); sprintf(strPRT, "%s", dtostrf(homedist, 4, 0, strtmp)); display.print(strPRT);
-				if (kmflag == 0) display.print("m     "); else display.print("Km      "); //Spaces added to allow "m" or "Km" to be erased after large numbers
+				sprintf(strPRT, "%s m      ", dtostrf(Data.altitude - homealt, 4, 0, strtmp)); displaySetCursor(3, 4); display.print(strPRT);
+				sprintf(strPRT, "%s Km/h      ", dtostrf(Data.groundspeed*1.852, 4, 0, strtmp)); displaySetCursor(4, 4); display.print(strPRT);
+				sprintf(strPRT, "%s Deg      ", dtostrf(homeazim, 4, 0, strtmp)); displaySetCursor(5, 4); display.print(strPRT);
+				displaySetCursor(6, 4); sprintf(strPRT, "%s", dtostrf(homedist, 4, 0, strtmp)); display.print(strPRT);
+				if (kmflag == 0) display.print(" m "); else display.print(" Km"); //Spaces added to allow "m" or "Km" to be erased after large numbers
 				display.setTextSize(CHARSCALE + 2);
-				displaySetCursor(5, 0); sprintf(strPRT, "%s Km/h", dtostrf(highspeed, 1, 0, strtmp)); display.print(strPRT);
+				displaySetCursor(8, 0); sprintf(strPRT, "%s Km/h", dtostrf(highspeed, 1, 0, strtmp)); display.print(strPRT);
 				display.setTextSize(CHARSCALE);
 			}
 			break;
@@ -713,20 +937,20 @@ void displaymenu(byte menuPage, bool forceRepaint)
 			{
 				lastmenu = menuPage;
 				displayReset();
-				displaySetCursor(0, 0); display.print("3 - MAXIMUM");
-				displaySetCursor(1, 0); sprintf(strPRT, "MxSpd:%s", dtostrf(highspeed, 4, 0, strtmp)); display.print(strPRT);
-				displaySetCursor(2, 0); sprintf(strPRT, "MxAlt:%4d", maxalt); display.print(strPRT);
-				displaySetCursor(3, 0); sprintf(strPRT, "MxDst:%d", maxdist); display.print(strPRT);
-				if (kmflag == 0) display.print("m"); else display.print("Km");
-				displaySetCursor(4, 0); sprintf(strPRT, "\nGPS Alt:%s", dtostrf(Data.altitude, 5, 0, strtmp)); display.print(strPRT);
+				displaySetCursor(2, 0); display.print("3 - MAXIMUM");
+				displaySetCursor(3, 0); sprintf(strPRT, "MxSpd:%s K/h", dtostrf(highspeed, 4, 0, strtmp)); display.print(strPRT);
+				displaySetCursor(4, 0); sprintf(strPRT, "MxAlt:%4d m", maxalt); display.print(strPRT);
+				displaySetCursor(5, 0); sprintf(strPRT, "MxDst:%4d", maxdist); display.print(strPRT);
+				if (kmflag == 0) display.print(" m "); else display.print(" Km");
+				displaySetCursor(7, 0); sprintf(strPRT, "GPS Alt:%s m", dtostrf(Data.altitude, 5, 0, strtmp)); display.print(strPRT);
 			}
 			else
 			{
-				displaySetCursor(1, 6); sprintf(strPRT, "%s", dtostrf(highspeed, 4, 0, strtmp)); display.print(strPRT);
-				displaySetCursor(2, 6); sprintf(strPRT, "%4d", maxalt); display.print(strPRT);
-				displaySetCursor(3, 6); sprintf(strPRT, "%d", maxdist); display.print(strPRT);
-				if (kmflag == 0) display.print("m"); else display.print("Km");
-				displaySetCursor(5, 8); sprintf(strPRT, "%s ", dtostrf(Data.altitude, 5, 0, strtmp)); display.print(strPRT);
+				displaySetCursor(3, 6); sprintf(strPRT, "%s", dtostrf(highspeed, 4, 0, strtmp)); display.print(strPRT);
+				displaySetCursor(4, 6); sprintf(strPRT, "%4d", maxalt); display.print(strPRT);
+				displaySetCursor(5, 6); sprintf(strPRT, "%4d", maxdist); display.print(strPRT);
+				if (kmflag == 0) display.print(" m "); else display.print(" Km");
+				displaySetCursor(7, 8); sprintf(strPRT, "%s ", dtostrf(Data.altitude, 5, 0, strtmp)); display.print(strPRT);
 			}
 			break;
 		}
@@ -737,19 +961,19 @@ void displaymenu(byte menuPage, bool forceRepaint)
 			{
 				lastmenu = menuPage;
 				displayReset();
-				displaySetCursor(0, 0); display.print("4 - P. POS");
-				displaySetCursor(1, 0); sprintf(strPRT, "LAT:%c %s", Data.lat, dtostrf(Data.latitude, 9, 4, strtmp)); display.print(strPRT);
-				displaySetCursor(2, 0); sprintf(strPRT, "LON:%c %s", Data.lon, dtostrf(Data.longitude, 9, 4, strtmp)); display.print(strPRT);
-				displaySetCursor(3, 0); sprintf(strPRT, "GOOGLE COORD:"); display.print(strPRT);
-				displaySetCursor(4, 0); sprintf(strPRT, "%s", dtostrf(Data.latitudedeg, 10, 6, strtmp)); display.print(strPRT);
-				displaySetCursor(5, 0); sprintf(strPRT, "%s", dtostrf(Data.longitudedeg, 10, 6, strtmp)); display.print(strPRT);
+				displaySetCursor(2, 0); display.print("4 - P. POS");
+				displaySetCursor(3, 0); sprintf(strPRT, "LAT:%c %s", Data.lat, dtostrf(Data.latitude, 9, 4, strtmp)); display.print(strPRT);
+				displaySetCursor(4, 0); sprintf(strPRT, "LON:%c %s", Data.lon, dtostrf(Data.longitude, 9, 4, strtmp)); display.print(strPRT);
+				displaySetCursor(5, 0); sprintf(strPRT, "GOOGLE COORD:"); display.print(strPRT);
+				displaySetCursor(6, 0); sprintf(strPRT, "%s", dtostrf(Data.latitudedeg, 10, 6, strtmp)); display.print(strPRT);
+				displaySetCursor(7, 0); sprintf(strPRT, "%s", dtostrf(Data.longitudedeg, 10, 6, strtmp)); display.print(strPRT);
 			}
 			else
 			{
-				displaySetCursor(1, 4); sprintf(strPRT, "%c %s", Data.lat, dtostrf(Data.latitude, 9, 4, strtmp)); display.print(strPRT);
-				displaySetCursor(2, 4); sprintf(strPRT, "%c %s", Data.lon, dtostrf(Data.longitude, 9, 4, strtmp)); display.print(strPRT);
-				displaySetCursor(4, 0); sprintf(strPRT, "%s", dtostrf(Data.latitudedeg, 10, 6, strtmp)); display.print(strPRT);
-				displaySetCursor(5, 0); sprintf(strPRT, "%s", dtostrf(Data.longitudedeg, 10, 6, strtmp)); display.print(strPRT);
+				displaySetCursor(3, 4); sprintf(strPRT, "%c %s", Data.lat, dtostrf(Data.latitude, 9, 4, strtmp)); display.print(strPRT);
+				displaySetCursor(4, 4); sprintf(strPRT, "%c %s", Data.lon, dtostrf(Data.longitude, 9, 4, strtmp)); display.print(strPRT);
+				displaySetCursor(6, 0); sprintf(strPRT, "%s", dtostrf(Data.latitudedeg, 10, 6, strtmp)); display.print(strPRT);
+				displaySetCursor(7, 0); sprintf(strPRT, "%s", dtostrf(Data.longitudedeg, 10, 6, strtmp)); display.print(strPRT);
 			}
 			break;
 		}
@@ -760,20 +984,20 @@ void displaymenu(byte menuPage, bool forceRepaint)
 			{
 				lastmenu = menuPage;
 				displayReset();
-				displaySetCursor(0, 0); display.print("5 - RECOVERY");
-				displaySetCursor(1, 0); display.print("GOOGLE COORD:");
-				displaySetCursor(2, 0); sprintf(strPRT, "%s", dtostrf(Data.latitudedeg, 9, 6, strtmp)); display.print(strPRT);
-				displaySetCursor(3, 0); sprintf(strPRT, "%s", dtostrf(Data.longitudedeg, 9, 6, strtmp)); display.print(strPRT);
-				displaySetCursor(4, 0); sprintf(strPRT, "AZM:%d", homeazim); display.print(strPRT);
-				displaySetCursor(5, 0); sprintf(strPRT, "DIS:%d", homedist); display.print(strPRT);
+				displaySetCursor(2, 0); display.print("5 - RECOVERY");
+				displaySetCursor(3, 0); display.print("GOOGLE COORD:");
+				displaySetCursor(4, 0); sprintf(strPRT, "%s", dtostrf(Data.latitudedeg, 9, 6, strtmp)); display.print(strPRT);
+				displaySetCursor(5, 0); sprintf(strPRT, "%s", dtostrf(Data.longitudedeg, 9, 6, strtmp)); display.print(strPRT);
+				displaySetCursor(6, 0); sprintf(strPRT, "AZM:%d", homeazim); display.print(strPRT);
+				displaySetCursor(7, 0); sprintf(strPRT, "DIS:%d", homedist); display.print(strPRT);
 				if (kmflag == 0) display.print("m"); else display.print("Km");
 			}
 			else
 			{
-				displaySetCursor(2, 0); sprintf(strPRT, "%s", dtostrf(Data.latitudedeg, 9, 6, strtmp)); display.print(strPRT);
-				displaySetCursor(3, 0); sprintf(strPRT, "%s", dtostrf(Data.longitudedeg, 9, 6, strtmp)); display.print(strPRT);
-				displaySetCursor(4, 4); sprintf(strPRT, "%d", homeazim); display.print(strPRT);
-				displaySetCursor(5, 4); sprintf(strPRT, "%d", homedist); display.print(strPRT);
+				displaySetCursor(4, 0); sprintf(strPRT, "%s", dtostrf(Data.latitudedeg, 9, 6, strtmp)); display.print(strPRT);
+				displaySetCursor(5, 0); sprintf(strPRT, "%s", dtostrf(Data.longitudedeg, 9, 6, strtmp)); display.print(strPRT);
+				displaySetCursor(6, 4); sprintf(strPRT, "%d", homeazim); display.print(strPRT);
+				displaySetCursor(7, 4); sprintf(strPRT, "%d", homedist); display.print(strPRT);
 				if (kmflag == 0) display.print("m"); else display.print("Km");
 			}
 			break;
@@ -786,9 +1010,9 @@ void displaymenu(byte menuPage, bool forceRepaint)
 				lastmenu = menuPage;
 
 				displayReset();
-				displaySetCursor(0, 0); display.print("6 - TOOLS");
-				displaySetCursor(1, 0); display.print("Curr. Ver.:");
-				displaySetCursor(2, 0); sprintf(strPRT, "%s", VERSION); display.print(strPRT);
+				displaySetCursor(2, 0); display.print("6 - TOOLS");
+				displaySetCursor(3, 0); display.print("Curr. Ver.:");
+				displaySetCursor(4, 0); sprintf(strPRT, "%s", VERSION); display.print(strPRT);
 			}
 			break;
 		}
@@ -800,13 +1024,13 @@ void displaymenu(byte menuPage, bool forceRepaint)
 				lastmenu = menuPage;
 
 				displayReset();
-				displaySetCursor(0, 0); display.print("7 - LOGGER");
-				displaySetCursor(1, 0); sprintf(strPRT, "#Records:%lu", mylog.numRecords); display.print(strPRT);
-				displaySetCursor(2, 0); sprintf(strPRT, "press B2 to erase!"); display.print(strPRT);
+				displaySetCursor(2, 0); display.print("7 - LOGGER");
+				displaySetCursor(3, 0); sprintf(strPRT, "#Records:%lu", mylog.numRecords); display.print(strPRT);
+				displaySetCursor(4, 0); sprintf(strPRT, "press B2 to erase!"); display.print(strPRT);
 			}
 			else
 			{
-				displaySetCursor(1, 9); sprintf(strPRT, "%lu", mylog.numRecords); display.print(strPRT);
+				displaySetCursor(3, 9); sprintf(strPRT, "%lu", mylog.numRecords); display.print(strPRT);
 			}
 			break;
 		}
@@ -817,9 +1041,9 @@ void displaymenu(byte menuPage, bool forceRepaint)
 				lastmenu = menuPage;
 
 				displayReset();
-				displaySetCursor(0, 0); display.print("8 - Log Dump");
-				displaySetCursor(1, 0); sprintf(strPRT, "connect to PC", mylog.numRecords); display.print(strPRT);
-				displaySetCursor(2, 0); sprintf(strPRT, "press B2 to dump!"); display.print(strPRT);
+				displaySetCursor(2, 0); display.print("8 - Log Dump");
+				displaySetCursor(3, 0); sprintf(strPRT, "connect to PC", mylog.numRecords); display.print(strPRT);
+				displaySetCursor(4, 0); sprintf(strPRT, "press B2 to dump!"); display.print(strPRT);
 			}
 			break;
 		}
@@ -839,16 +1063,16 @@ void displaywarning(int warningcode)
 	if (warningcode & WRN_LINK) //link lost
 	{
 		#ifdef DEBUG
-			Serial.print("link Lost");
+			Serial.print F("link Lost");
 		#endif
 
 		display.setTextColor(WHITE, RED);
-		display.print("LINK ");
+		display.print(" LNK ");
 	}
 	if (warningcode & WRN_FIX)  // GPS fix lost
 	{
 		#ifdef DEBUG
-			Serial.println("GPS fix Lost");
+			Serial.println F("GPS fix Lost");
 		#endif
 
 		display.setTextColor(BLACK, ORANGE);
@@ -904,7 +1128,7 @@ void sendToGoogle(Payload stcData)
 
 	char hexCS1[2];
 	sprintf(hexCS1, "%02X", checksum(gpsstr1));
-	Serial.print("$"); Serial.print(gpsstr1); Serial.print("*"); Serial.println(hexCS1);
+	Serial.print F("$"); Serial.print(gpsstr1); Serial.print F("*"); Serial.println(hexCS1);
 
 	//$GPRMC,233913.000,A,3842.9618,N,00916.8614,W,0.50,50.58,180216,,,A*4A
 	char *k = gpsstr2;
@@ -919,7 +1143,7 @@ void sendToGoogle(Payload stcData)
 
 	char hexCS2[2];
 	sprintf(hexCS2, "%02X", checksum(gpsstr2));
-	Serial.print("$"); Serial.print(gpsstr2); Serial.print("*"); Serial.println(hexCS2);
+	Serial.print F("$"); Serial.print(gpsstr2); Serial.print F("*"); Serial.println(hexCS2);
 }
 
 /*
@@ -946,27 +1170,7 @@ char* fill(char* str, int length, char charcode, bool initialize)
 }
 
 // Interrupt is called once a millisecond, looks for any new GPS data, and stores it
-SIGNAL(TIMER0_COMPA_vect) {
-  char c = GPS.read();
-  // if you want to debug, this is a good time to do it!
-#ifdef UDR0
-    if (c) UDR0 = c;
-  // writing direct to UDR0 is much much faster than Serial.print
-  // but only one character can be written at a time.
-#endif
-}
-
-void useInterrupt(boolean v) {
-  if (v) {
-    // Timer0 is already used for millis() - we'll just interrupt somewhere
-    // in the middle and call the "Compare A" function above
-    OCR0A = 0xAF;
-    TIMSK0 |= _BV(OCIE0A);
-    usingInterrupt = true;
-  }
-  else {
-    // do not call the interrupt function COMPA anymore
-    TIMSK0 &= ~_BV(OCIE0A);
-    usingInterrupt = false;
-  }
+SIGNAL(TIMER0_COMPA_vect)
+{
+		GPS.read();
 }
