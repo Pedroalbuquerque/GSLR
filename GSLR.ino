@@ -72,10 +72,10 @@ To Do:
 #define BUTPIN2 13 //Analog pin assigned to MENUS SCROLL button
 #define MPAGES 8 //Number of menu pages
 #define GOOGLEMAPS //Uncomment to have Google info sent trough the Serial port on menu 2
-#define TFT_TOUCH_9341
+//#define TFT_TOUCH_9341
 //#define TFT_ILI9340 //Uncomment to use Adafruit 2.2" TFT display
 //#define LCD // uncomment to use NOKIA LCD display
-//#define TFT_ST7735 //Uncomment if you use the Seed Studio TFT 1.8"
+#define TFT_ST7735 //Uncomment if you use the Seed Studio TFT 1.8"
 //#define DEBUG //Uncomment to activate Serial Monitor Debug
 #define BUZZER // Comment if a buzzer is installed
 
@@ -108,7 +108,7 @@ To Do:
 	#define TS_MINY 120
 	#define TS_MAXX 920
 	#define TS_MAXY 940
-	
+
 TouchScreen ts = TouchScreen(XP, YP, XM, YM, 300);
 
 	#define LCD_CS 18
@@ -172,6 +172,7 @@ TouchScreen ts = TouchScreen(XP, YP, XM, YM, 300);
 	#define SCRPIXELY 84
 	#define SCRLINES 6    // 6 lines
 	#define SCRCHARS 14   // 14 characters
+///  #define BOXSIZE 120
 
 	#define PIN_LCD_LIGHT 9 //Backlight pin for NOKIA LCD
 #endif
@@ -197,12 +198,15 @@ TouchScreen ts = TouchScreen(XP, YP, XM, YM, 300);
 	#define CHARSCALE 1
 	#define SCRLINES 14   // 20 Lines or 27 characters / CHARSCALE
 	#define SCRCHARS 25   // 21 characters or 16 lines /CHARSCALE
+//  #define BOXSIZE 120
+
 	#define BLACK ST7735_BLACK
 	#define WHITE ST7735_WHITE
 	#define RED ST7735_RED
 	#define BLUE ST7735_BLUE
 	#define YELLOW ST7735_YELLOW
 	#define ORANGE 0xFF00
+  #define GREEN ST7735_GREEN
 #endif
 
 #ifdef TFT_ILI9340
@@ -228,7 +232,8 @@ TouchScreen ts = TouchScreen(XP, YP, XM, YM, 300);
 	#define CHARSCALE 2
 	#define SCRLINES 14   // 20 Lines or 27 characters / CHARSCALE
 	#define SCRCHARS 25   // 21 characters or 16 lines /CHARSCALE
-
+//  #define BOXSIZE 120
+  
 	//Adaruit_ILI9340 display = Adafruit_ILI9340(CS, DC, MOSI, SCL, RST, MISO); //For Software SPI
 	Adafruit_ILI9340 display = Adafruit_ILI9340(CS, DC, RST); //For Hardware SPI
 
@@ -238,6 +243,7 @@ TouchScreen ts = TouchScreen(XP, YP, XM, YM, 300);
 	#define BLUE ILI9340_BLUE
 	#define YELLOW ILI9340_YELLOW
 	#define ORANGE 0xFC00
+  #define GREEN ILI9340_GREEN
 #endif
 
 	//Define GPS information LOG received from RS using SPI Flash Memory
@@ -437,7 +443,7 @@ void setup()
 			Serial.println(identifier, HEX);
 			return;
 		}
-				
+
 		#define MINPRESSURE 10
 		#define MAXPRESSURE 1000
 
@@ -498,7 +504,7 @@ void loop()
 
 		if (p.z > MINPRESSURE && p.z < MAXPRESSURE)
 		{
-		
+
 			// scale from 0->1023 to tft.width
 			p.x = (map(p.x, TS_MINX, TS_MAXX, display.width(), 0)) - 5;
 			p.y = (map(p.y, TS_MINY, TS_MAXY, display.height(), 0)) - 15;
@@ -523,7 +529,7 @@ void loop()
 	else if (!digitalRead(BUTPIN2))
 		button2 = 1;
 
-	
+
 	if (button1 == 1)  // process button 1 if pressed - Menu navigation
 	{
 		button1 = 0;
@@ -606,7 +612,7 @@ void loop()
 		#endif
 		warningLevel = setflag(warningLevel, 0xFF, FLAGRESET); // reset all warning to force re-evaluation
 	}
-	
+
 
 	// check radio reception and process if data is available
 	if (timerLink > millis()) timerLink = millis();
@@ -622,7 +628,7 @@ void loop()
 		{
 			timerLink = millis(); //Set a counter for data link loss timeout calculation
 
-	
+
 			rssi = driver.lastRssi();	//RSSI;
 
 
@@ -634,7 +640,7 @@ void loop()
 				warningLevel = setflag(warningLevel, WRN_FIX, FLAGRESET);
 
 				// Run the distance calculating function, passing the memorized position as arguments
-				kmflag = GPSDist(homelat, homelon, Data.latitudedeg, Data.longitudedeg, &homedist, &homeazim); 
+				kmflag = GPSDist(homelat, homelon, Data.latitudedeg, Data.longitudedeg, &homedist, &homeazim);
 
 
 				if (Data.altitude > maxalt + homealt)	// check maximum altitude
@@ -890,7 +896,7 @@ void displaymenu(byte menuPage, bool forceRepaint)
 			}
 			else // if already in menu, print just info to reduce screen flicker
 			{
-				displaySetCursor(3, 4); 
+				displaySetCursor(3, 4);
 				display.print(Data.satellites);
 				displaySetCursor(4, 5);
 				display.print(Data.fixquality);
