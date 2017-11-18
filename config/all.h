@@ -1,0 +1,5 @@
+#include "debug.h"
+#include "config.h"
+#include "display.h"
+#include "globalvars.h"
+//#include "menus.h"

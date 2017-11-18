@@ -8,3 +8,4 @@ Img
 *.vcx*
 Release
 *.sln*
+.piolibdeps
