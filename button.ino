@@ -4,10 +4,10 @@ uint8_t buttonPressed(){
 
   #if defined SERIALBUTTON
 
-      char c ;
-      if(Serial.available()) c = Serial.read();
-      if((c >= '0') && c<= '9' ) {
-        c -= '0';
+      char c=0 ;
+      if(Serial.available() > 0) {
+        c = Serial.read();
+        if((c >= '0') && c<= '9' ) c -= '0';
       }
       return c;
 

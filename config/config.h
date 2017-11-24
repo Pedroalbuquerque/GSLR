@@ -4,6 +4,11 @@
 
 //#define DEBUG //Uncomment to activate Serial Monitor Debug
 
+#define ECHO_PORT Serial
+#define DEBUG_PORT Serial
+
+
+
 //************************* DEFINITIONS ****************************
 
 
@@ -34,6 +39,10 @@
 
 #define SERIALBUTTON
 //#define PUSHBUTTON
+
+#define btnUP	1
+#define btnDOWN 2
+#define btnSELECT 3
 
 // **** define if a BUZZER exist to give sound feedback
 

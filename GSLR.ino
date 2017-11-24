@@ -92,9 +92,6 @@ RH_RF95 driver;
 // Class to manage message delivery and receipt, using the driver declared above
 RHReliableDatagram manager(driver, GR_STATION_ID);
 
-// cursor object instance
-clsCursor menuCursor(menu); //define a cursor for the menu array
-
 
 // object declaration to use GPS
 
@@ -119,14 +116,25 @@ Adafruit_GPS GPS(&Serial1); // connect GPS to serial 1 GPS_TX on pin10 GPS_RX on
 	//void sendToGoogle(Payload stcData);
 #endif
 
+/*
+// cursor object instance
+Cursor menuCursor; //define a cursor for the menu array
 
-void setup()
-{
+void debug_menu(){
+  DEBUG_MSG("Navigate :%d\n",menuCursor.navigate);
+  DEBUG_MSG("Menu:%d\t",menuCursor.menuIdx);
+  DEBUG_MSG("Sub:%d\n",menuCursor.subIdx);
+}
+*/
+
+void setup(){
 	// initialize Serial port for debugging
 	Serial.begin(SERIAL_BAUD); //Initialize the Serial port at the specified baud rate
 	Serial.println F("GPS AND TELEMETRY MODULE");
 	Serial.println(VERSION);
 	Serial.println F("Initializing...");
+
+	// initialize Radio
 
 	if (manager.init())
 	{
@@ -150,7 +158,7 @@ void setup()
 	pinMode(BUTPIN1, INPUT_PULLUP); // Setup the first button with an internal pull-up
 	pinMode(BUTPIN2, INPUT_PULLUP); // Setup the second button with an internal pull-up
 
-		#ifdef LCD
+	#ifdef LCD
 		pinMode(PIN_LCD_LIGHT, OUTPUT); //LCD backlight, LOW = backlight ON
 	#endif
 
@@ -238,21 +246,24 @@ void setup()
 
 	timerLink = millis(); //Initialize Data link loss timeout timer variable
 
-	Serial.print("Menu size:");Serial.println( menuCursor.maxMenu());
+
 
 }
 
 void loop()
 {
-	uint8_t button = 0;
+	uint8_t button ;
 
 	makeHeader();
 
 	// read button to see if there is activity
-	button = 0;
 	button = buttonPressed();
-	if(button !=0) DEBUG_MSG("button: %d\n",button);
-
+	/*
+	if(button!=0){
+		menuCursor.update(button);
+		debug_menu();
+	}
+	*/
 	menuAction(button);
 
 	// check radio reception and process if data is available
