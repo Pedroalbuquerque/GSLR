@@ -116,7 +116,7 @@ Adafruit_GPS GPS(&Serial1); // connect GPS to serial 1 GPS_TX on pin10 GPS_RX on
 	//void sendToGoogle(Payload stcData);
 #endif
 
-/*
+
 // cursor object instance
 Cursor menuCursor; //define a cursor for the menu array
 
@@ -125,7 +125,7 @@ void debug_menu(){
   DEBUG_MSG("Menu:%d\t",menuCursor.menuIdx);
   DEBUG_MSG("Sub:%d\n",menuCursor.subIdx);
 }
-*/
+
 
 void setup(){
 	// initialize Serial port for debugging
@@ -258,13 +258,13 @@ void loop()
 
 	// read button to see if there is activity
 	button = buttonPressed();
-	/*
+
 	if(button!=0){
 		menuCursor.update(button);
 		debug_menu();
 	}
-	*/
-	menuAction(button);
+
+	//menuAction(button);
 
 	// check radio reception and process if data is available
 	if (timerLink > millis()) timerLink = millis();
