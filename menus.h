@@ -17,7 +17,9 @@ menuStrcture menu[] =  {
   { 0, INFO, 4}, // display Altitude, Latitude, Longiude, Speed
   { 1, INFO, 3}, // maxAltitude, maxDistance, maxSpeed
   { 2, OPTION, 2},  //setHome, Reset maxValues
-  { 3, OPTION, 1} // dump LOG
+  { 3, OPTION, 1}, // dump LOG
+  { 4, OPTION, 1}, //??
+  { 5, OPTION, 1}
 };
 
 
@@ -45,6 +47,10 @@ public:
 
 };
 
+// cursor object instance
+Cursor menuCursor; //define a cursor for the menu array
+
+void menuAction(uint8_t button, Cursor myCursor);
 
 /*
 Cursor::init(menuStrcture menu[]){
@@ -66,12 +72,14 @@ Cursor::Cursor( ) {
 }
 
 uint8_t Cursor::nextMenu(){
-  menuIdx ++;
+  navigate = navMENU;
+  update(btnUP);
   return menuIdx;
 }
 
 uint8_t Cursor::prevMenu(){
-  menuIdx ++;
+  navigate = navMENU;
+  update(btnDOWN);
   return menuIdx;
 }
 
@@ -94,9 +102,23 @@ void Cursor::update(uint8_t button){
           if(menuIdx > _maxMenu ) menuIdx = _maxMenu;  // if on base position move to next menu
           subIdx = 0;  // just for safety as navMENU should already mean
         }
-          break;
-    case btnSELECT:
         break;
+    case btnSELECT:
+        if (subIdx == 0){
+            if(navigate == navMENU){
+                navigate = navSUB;
+                subIdx = 1;
+            }
+            else{
+              navigate = navMENU;
+              subIdx = 0;
+            }
+            return;  // if just switching navigate mode do not execute action
+          }
+        break;
+  }
+  if(navigate == navSUB){
+      menuAction(button, menuCursor); // when entering a menu action a submenu is already selected
   }
 }
 

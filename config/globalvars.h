@@ -1,3 +1,6 @@
+#ifndef GLOBALVARS_H
+#define GLOBALVARS_H
+
 //  *** Warning Flags
 
 #define WRN_LINK	1	//b 00000001
@@ -62,3 +65,6 @@ unsigned long int timerWarning = 0; //for warning display @ 2000ms intervals
 																																				// General purpose auxiliary vars
 char strPRT[100]; // to support any print command with sprintf
 char strtmp[40];  // to support float to string conversion or other string manipulation
+
+
+#endif

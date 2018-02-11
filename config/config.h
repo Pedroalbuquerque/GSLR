@@ -1,3 +1,7 @@
+#ifndef CONFIG_H
+#define CONFIG_H
+
+
 // **************************************************
 // configure your hardware using define directives
 //**************************************************
@@ -5,7 +9,7 @@
 //#define DEBUG //Uncomment to activate Serial Monitor Debug
 
 #define ECHO_PORT Serial
-#define DEBUG_PORT Serial
+//#define DEBUG_PORT Serial
 
 
 
@@ -29,20 +33,21 @@
 // *****   Define type of LCD to use *****
 
 
-//#define TFT_TOUCH_9341
+#define TFT_TOUCH_9341
 //#define TFT_ILI9340 //Uncomment to use Adafruit 2.2" TFT display
 //#define LCD // uncomment to use NOKIA LCD display
-#define TFT_ST7735 //Uncomment if you use the Seed Studio TFT 1.8"
+//#define TFT_ST7735 //Uncomment if you use the Seed Studio TFT 1.8"
 
 // **** Button type *****
 // if display has touchscreen comment all
 
-#define SERIALBUTTON
+//#define SERIALBUTTON
 //#define PUSHBUTTON
 
-#define btnUP	1
-#define btnDOWN 2
+#define btnUP	2
+#define btnDOWN 1
 #define btnSELECT 3
+
 
 // **** define if a BUZZER exist to give sound feedback
 
@@ -52,12 +57,11 @@
 	#define BUZZ 14 //Buzzer output pin
 #endif
 
-
-
-
-
 #ifdef __AVR_ATmega1284P__
 	#define LED           15 // Moteino MEGAs have LEDs on D15
 #else
 	#define LED           9 // Moteinos have LEDs on D9
+#endif
+
+
 #endif

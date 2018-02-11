@@ -4,32 +4,17 @@
 
 // **** default pin connection for LCD display  ****
 
-// Adaruit 2.4 TFT with touchscreen
-
-// For the Moteino Mega, use digital Analog pins A0 through A7
-//   D0 connects to analog pin A0
-//   D1 connects to analog pin A1
-//   D2 connects to analog pin A2
-//   D3 connects to analog pin A3
-//   D4 connects to analog pin A4
-//   D5 connects to analog pin A5
-//   D6 connects to analog pin A6
-//   D7 connects to analog pin A7
-#define YP A0
-#define XM A1
-#define YM A2
-#define XP A3
+#define ALERTHIGH 20 // high in pixel of the Alert area
 
 
 #ifdef TFT_TOUCH_9341
 
-	#include <Adafruit_TFTLCD.h>
 	#include <TouchScreen.h>
 
 	#define YP A0  // must be an analog pin, use "An" notation!
+	#define XP 1   // can be a digital pin
+	#define YM 0  // can be a digital pin
 	#define XM A1  // must be an analog pin, use "An" notation!
-	#define YM A2  // can be a digital pin
-	#define XP A3   // can be a digital pin
 
 	#define TS_MINX 150
 	#define TS_MINY 120
@@ -42,12 +27,33 @@
 
   TouchScreen ts = TouchScreen(XP, YP, XM, YM, 300);
 
-  // display pins
-	#define LCD_CS 18
-	#define LCD_CD 19
-	#define LCD_WR 20
-	#define LCD_RD 21
-	#define LCD_RESET 0 	// optional
+	#define TFT_SPI 	// use SPi interface
+	//#define TFT_8PIN 	// use 8 bit interface
+
+		#ifdef TFT_SPI
+			#include <Adafruit_ILI9341.h>
+			// display pins
+			#define LCD_CLK A2
+			#define LCD_MISO A3
+			#define LCD_MOSI A4
+			#define LCD_CS A5 // 18
+			#define LCD_DC A6 //19
+			#define LCD_RST A7 	// optional
+			Adafruit_ILI9341 display(LCD_CS, LCD_DC,LCD_MOSI, LCD_CLK, LCD_RST, LCD_MISO );
+
+
+		#else
+			#include <Adafruit_TFTLCD.h>
+			// display pins
+			#define LCD_CS 18
+			#define LCD_CD 19
+			#define LCD_WR 20
+			#define LCD_RD 21
+			#define LCD_RESET 0 	// optional
+			Adafruit_TFTLCD display(LCD_CS, LCD_CD, LCD_WR, LCD_RD, LCD_RESET);
+
+		#endif
+
 
 	// Assign human-readable names to some common 16-bit color values:
 	#define	BLACK   0x0000
@@ -65,12 +71,14 @@
 	#define CHARHEIGHT 8
 	#define SCRROTATION 0 // 90º rotation
 	#define CHARSCALE 2
-	#define SCRLINES 10   // 20 Lines or 27 characters / CHARSCALE
+	#define SCRLINES 20 //10  // 20 Lines or 27 characters / CHARSCALE
 	#define SCRCHARS 25   // 21 characters or 16 lines /CHARSCALE
+	#define SCRPIXELX 240
+	#define SCRPIXELY 320
 
-	Adafruit_TFTLCD display(LCD_CS, LCD_CD, LCD_WR, LCD_RD, LCD_RESET);
-
-	#define BOXSIZE 120
+	#define BOXSIZE 80 //120
+	#define BTSIZE_X 60
+	#define BTSIZE_Y 60
 
 #endif
 
@@ -98,8 +106,8 @@
 	#define CHARHEIGHT 8
 	#define SCRROTATION 0 // 0 rotation
 	#define CHARSCALE 1
-	#define SCRPIXELX 48
-	#define SCRPIXELY 84
+	#define SCRPIXELX 240
+	#define SCRPIXELY 320
 	#define SCRLINES 6    // 6 lines
 	#define SCRCHARS 14   // 14 characters
 ///  #define BOXSIZE 120

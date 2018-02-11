@@ -1,12 +1,10 @@
 
-void logposition(float loglat, float loglong)
-{
+void logposition(float loglat, float loglong){
 	longloglat = loglat * 1000000;
 	longloglong = loglong * 1000000;
 }
 
-byte checksum(char *str)
-{
+byte checksum(char *str){
 	byte sum, l;
 	sum = 0;
 	l = len(str);
@@ -18,8 +16,7 @@ byte checksum(char *str)
 }
 
 
-void sendToGoogle(Payload stcData)
-{
+void sendToGoogle(Payload stcData){
 	int latint = (int)stcData.latitude;
 	int latdec = (stcData.latitude * 10000) - (latint * 10000);
 	int lonint = (int)stcData.longitude;
