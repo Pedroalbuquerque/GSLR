@@ -19,7 +19,8 @@ menuStrcture menu[] =  {
   { 2, OPTION, 2},  //setHome, Reset maxValues
   { 3, OPTION, 1}, // dump LOG
   { 4, OPTION, 1}, //??
-  { 5, OPTION, 1}
+  { 5, OPTION, 1},
+  { 6, OPTION, 1}
 };
 
 
@@ -50,7 +51,6 @@ public:
 // cursor object instance
 Cursor menuCursor; //define a cursor for the menu array
 
-void menuAction(uint8_t button, Cursor myCursor);
 
 /*
 Cursor::init(menuStrcture menu[]){
@@ -107,7 +107,7 @@ void Cursor::update(uint8_t button){
         if (subIdx == 0){
             if(navigate == navMENU){
                 navigate = navSUB;
-                subIdx = 1;
+                subIdx = 0;
             }
             else{
               navigate = navMENU;
@@ -117,9 +117,9 @@ void Cursor::update(uint8_t button){
           }
         break;
   }
-  if(navigate == navSUB){
-      menuAction(button, menuCursor); // when entering a menu action a submenu is already selected
-  }
+  //if(navigate == navSUB){
+  //    menuAction(button, menuCursor); // when entering a menu action a submenu is already selected
+  //}
 }
 
 

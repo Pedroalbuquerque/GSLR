@@ -30,29 +30,30 @@
 	#define TFT_SPI 	// use SPi interface
 	//#define TFT_8PIN 	// use 8 bit interface
 
-		#ifdef TFT_SPI
-			#include <Adafruit_ILI9341.h>
-			// display pins
-			#define LCD_CLK A2
-			#define LCD_MISO A3
-			#define LCD_MOSI A4
-			#define LCD_CS A5 // 18
-			#define LCD_DC A6 //19
-			#define LCD_RST A7 	// optional
-			Adafruit_ILI9341 display(LCD_CS, LCD_DC,LCD_MOSI, LCD_CLK, LCD_RST, LCD_MISO );
+	#ifdef TFT_SPI
+		#include <Adafruit_ILI9341.h>
+		// display pins
+		#define LCD_CLK A2
+		#define LCD_MISO A3
+		#define LCD_MOSI A4
+		#define LCD_CS A5 // 18
+		#define LCD_DC A6 //19
+		#define LCD_RST A7 	// optional
+		Adafruit_ILI9341 display(LCD_CS, LCD_DC,LCD_MOSI, LCD_CLK, LCD_RST, LCD_MISO );
 
 
-		#else
-			#include <Adafruit_TFTLCD.h>
-			// display pins
-			#define LCD_CS 18
-			#define LCD_CD 19
-			#define LCD_WR 20
-			#define LCD_RD 21
-			#define LCD_RESET 0 	// optional
-			Adafruit_TFTLCD display(LCD_CS, LCD_CD, LCD_WR, LCD_RD, LCD_RESET);
-
-		#endif
+	#else
+	/*
+		#include <Adafruit_TFTLCD.h>
+		// display pins
+		#define LCD_CS 18
+		#define LCD_CD 19
+		#define LCD_WR 20
+		#define LCD_RD 21
+		#define LCD_RESET 0 	// optional
+		Adafruit_TFTLCD display(LCD_CS, LCD_CD, LCD_WR, LCD_RD, LCD_RESET);
+	*/
+	#endif
 
 
 	// Assign human-readable names to some common 16-bit color values:

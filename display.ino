@@ -346,6 +346,7 @@ void displaySetCursor(int line, int column) {
   }
 
 void makeHeader(){
+
     display.setTextSize(CHARSCALE);
     display.setTextColor(WHITE, BLACK);
 

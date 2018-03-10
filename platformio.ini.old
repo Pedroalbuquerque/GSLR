@@ -1,0 +1,45 @@
+#
+# Project Configuration File
+#
+# A detailed documentation with the EXAMPLES is located here:
+# http://docs.platformio.org/en/latest/projectconf.html
+#
+
+# A sign `#` at the beginning of the line indicates a comment
+# Comment lines are ignored.
+
+# Simple and base environment
+# [env:mybaseenv]
+# platform = %INSTALLED_PLATFORM_NAME_HERE%
+# framework =
+# board =
+#
+# Automatic targets - enable auto-uploading
+# targets = upload
+
+
+[platformio]
+src_dir=.
+lib_dir=/Users/pedroalbuquerque/Documents/GoogleDrive/Projects/libraries
+lib_extra_dirs =/Users/pedroalbuquerque/Documents/GoogleDrive/Projects/Lib_dev
+[common]
+;build_flags = -g -DECHO_PORT=Serial -DDEBUG_PORT=Serial -DMQTT_MAX_PACKET_SIZE=400
+build_flags = -g
+    -DECHO_PORT=Serial
+    -DDEBUG_PORT=Serial
+    -DMQTT_MAX_PACKET_SIZE=400
+    -Wcomment
+lib_ignore = ESP32WebServer
+    RFM69_OTA
+
+
+[env:moteinomega]
+platform=atmelavr
+framework=arduino
+board=moteinomega
+upload_port=/dev/cu.usbserial-DN00Z51U  ;USB
+;upload_port=/dev/cu.usbserial-A6Z2N027 ;FTDI
+build_flags = ${common.build_flags}
+  -D__AVR_ATmega2560__
+;  -DDEBUG=true
+;  -DGPSECHO=false

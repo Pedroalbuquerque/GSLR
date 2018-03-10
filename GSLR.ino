@@ -46,10 +46,11 @@ To Do:
 #include <math.h> //Arduino native math library
 #include <GPSMath.h> //To handle all GPS calculations https://github.com/Pedroalbuquerque/GPSMath
 #include <Adafruit_GPS.h> //https://github.com/adafruit/Adafruit_GPS/archive/master.zip
+//#include <SoftwareSerial.h>
 
 #include "./config/all.h"
 
-#include "menus.h"
+//#include "menus.h"
 #include "radio.h"
 
 #include <avr/wdt.h>
@@ -88,18 +89,20 @@ Payload Data;
 Payload GS_GPS; // struct to hold last good position from GS GPS
 Payload RS_GPS; // struct to hold last good position from RS GPS, this cold be the last save position on LOG
 
+
+
 //Define GPS information LOG received from RS using SPI Flash Memory
 FlashLogM mylog;
 
 
-
+//SoftwareSerial Serial1(5,6);
 // object declaration to use GPS
 
 Adafruit_GPS GPS(&Serial1); // connect GPS to serial 1 GPS_TX on pin10 GPS_RX on pin 11
 #define GPS_BAUD 9600
 
 // Function declaration if using Visual studio IDE
-#define VISUALSTD
+//#define VISUALSTD
 #ifdef VISUALSTD
 	int len(char* str);
 	//byte checksum(char *str);
@@ -131,12 +134,13 @@ void dot(){ //uint32_t i, uint8_t value){
 void setup(){
 
 	// initialize Serial port for debugging
+//	Serial1.begin(SERIAL_BAUD);
 	Serial.begin(SERIAL_BAUD); //Initialize the Serial port at the specified baud rate
 	Serial.println F("GPS AND TELEMETRY MODULE");
 	Serial.println(VERSION);
 	Serial.println F("Initializing...");
+	Serial.print("Flash DeviceID:"); Serial.println(flash.readDeviceId(),HEX);
 
-	Serial.print("Flash DeviceID:"); Serial.print(flash.readDeviceId());
 	if(flash.readDeviceId() != 0xEF30){
     Serial.print("Soft Reset");
     Reset_AVR();
@@ -156,9 +160,7 @@ void setup(){
 	// ### Initialize Log
 
 	// initialize log variables to start write and read
-	delay(1000);
 	display.print("Start - ");
-	//mylog.initialize(Data,display);
 	mylog.setCallback(dot);
 	mylog.initialize(Data);
 	Serial.println F("Log data initialized");
@@ -166,6 +168,7 @@ void setup(){
 	Serial.print F("Log next read addr:"); Serial.println(mylog.nextRead);
 	Serial.print F("Log # records saved:"); Serial.println(mylog.numRecords);
 	display.print("End\n");
+
 
 	// SPI initialization
 	SPI.usingInterrupt(digitalPinToInterrupt(2));
@@ -192,12 +195,21 @@ void setup(){
 	timerLink = millis(); //Initialize Data link loss timeout timer variable
 
 
+	Serial.begin(115200);
+	Serial.print("Start");
+	if (!manager.init()){
+		Serial.println F("init failed");
+		// Defaults after init are 434.0MHz, 13dBm, Bw = 125 kHz, Cr = 4/5, Sf = 128chips/symbol, CRC on
+	}
+		else Serial.print("manager.init OK!");
 
 }
 
 void loop()
 {
-	uint8_t button ;
+
+	static uint8_t button ;
+
 	makeHeader();
 
 	// read button to see if there is activity
@@ -209,7 +221,9 @@ void loop()
 
 	}
 
-	//menuAction(button);
+	menuAction(button,menuCursor);
+
+
 
 	if(radioLoop() == dataRecv){
 
@@ -222,7 +236,6 @@ void loop()
 	  #endif
 
 		displaymenu(menuCursor.menuIdx, false); // update menu info (menu page number, screen refresh)
-
 
 	}
 	else{ // if no data received
@@ -241,7 +254,11 @@ void loop()
 				}
 			#endif
 		}
+
 	}
+
+
+
 
 	// check Warnings
 	if (millis() < timerWarning) timerWarning = millis(); // if millis() wrap around reinitialize timer
@@ -250,28 +267,8 @@ void loop()
 		timerWarning = millis();
 	}
 
-	/*
-	// check GPS data if on Search menu (menu 9)
-	if(menuPage = 9)
-	{
-		// place here code to process local GPS data, calculate distance and azimuth from last good RS position
-		if (GPS.newNMEAreceived())
-		{
-			if (!GPS.parse(GPS.lastNMEA()))   // this also sets the newNMEAreceived() flag to false
-			{
-				Serial.println("GS NMEA not parsed");
-				return;                         // we can fail to parse a sentence in which case we should just wait for another
-			}
-			else
-			{
-				// save local GPS data to a var
-			}
 
-			// put here code to calculate distance and azimuth from GS to last RS good location
-		}
 
-	}
-	*/
 
 }
 
@@ -287,14 +284,6 @@ uint8_t setflag(uint8_t flagContainer, uint8_t flag, bool set)
 }
 
 
-void changeMenu(){
-	//  Blink(BUZZ, 50);
-	menuPage = menuPage + 1;
-	if (menuPage > MPAGES)
-	{
-		menuPage = 1;;
-	}
-}
 
 #ifdef BUZZER
 void Blink(byte PIN, int DELAY_MS) {//The BUZZ Blinking function
@@ -314,15 +303,21 @@ void fixposition(){
 	homeazim = 0;
 	homelat = Data.latitudedeg;//Memorize FIX latitude in DDMM.SS
 	homelon = Data.longitudedeg;//Memorize FIX longitude in DDDMM.SS
-	displayReset();
-	display.println("FIX Position Memorized");
-	display.println("LAT:"); display.println(homelat, 8); display.println("LON:"); display.println(homelon, 8);
 	homealt = Data.altitude;
+	displayReset();
+	displaySetCursor(3,0);
+	DEBUG_MSG("[fixPos] FIX Position Set\n")
+	display.println("FIX Position Set");
+	display.print("LAT:"); display.println(homelat, 8);
+	display.print("LON:"); display.println(homelon, 8);
 	#ifdef LCD
 		display.display();
 	#endif
 	delay(2000);
-	displaymenu(menuPage, true);
+	display.setCursor(0, 0);
+	display.fillRect(0, 0, display.width(), ALERTHIGH-1, BLACK);
+	DEBUG_MSG("[fixPOS] menuIdx:%d",menuCursor.menuIdx);
+	displaymenu(menuCursor.menuIdx, true);
 }
 
 

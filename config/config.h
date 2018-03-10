@@ -17,7 +17,7 @@
 
 
 #define VERSION "GS LR MEGA V1.3.0"
-#define FREQUENCY 434 //Match with the correct radio frequency of the other radio
+#define FREQUENCY 915 //434 //Match with the correct radio frequency of the other radio
 #define SERIAL_BAUD 115200 //To communicate with serial monitor for debug
 #define BUTPIN1 12 //Analog pin assigned to FIX button
 #define BUTPIN2 13 //Analog pin assigned to MENUS SCROLL button

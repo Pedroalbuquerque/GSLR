@@ -8,6 +8,7 @@ void menuAction(uint8_t button, Cursor myCursor){
 					#ifdef BUZZER
 						Blink(BUZZ, 5);
 					#endif
+					DEBUG_MSG("[action]fix POS *****************\n");
 					fixposition();
 			}
 			break;
@@ -84,7 +85,7 @@ void menuAction(uint8_t button, Cursor myCursor){
 				}
 				mylog.nextRead = logStart;	// reposition nextRead pointer for next read if necessary
 				interrupts();
-				displaymenu(menuPage, true);
+				displaymenu(myCursor.menuIdx, true);
 
 				// uppon action, return to menu myCursor.navigate mode
 				myCursor.navigate = navMENU;
@@ -97,20 +98,20 @@ void menuAction(uint8_t button, Cursor myCursor){
 }
 
 
-void menuActionOld(uint8_t button){
+void menuActionOld(uint8_t button, Cursor mycursor){
 
 
 	if (button == 1)  // process button 1 if pressed - Menu navigation
 	{
 		//button1 = 0;
-		changeMenu();
-		displaymenu(menuPage, true);
+		//changeMenu();
+		displaymenu(menuCursor.menuIdx, true);
 		warningLevel = setflag(warningLevel, 0xFF, FLAGRESET); // reset all warning to force re-evaluation
 	}
 	if (button == 2)// process button 2 if pressed - Function within Menu
 	{
 		//button2 = 0;
-		switch (menuPage)
+		switch (menuCursor.menuIdx)
 		{
 		case 1: // myCursor.navigate
 		#ifdef BUZZER
@@ -146,7 +147,7 @@ void menuActionOld(uint8_t button){
 			displaySetCursor(3, 0); display.print(fill(strPRT, SCRCHARS, ' ', true));
 			displaySetCursor(2, 0); sprintf(strPRT, "ERASING LOG..."); display.print(strPRT);
 			mylog.eraseData(); //erase LOG memory on B2
-			displaymenu(menuPage, true);
+			displaymenu(menuCursor.menuIdx, true);
 			break;
 		case 8: // dump log to Googlemaps
 			//  display some activity message
@@ -170,7 +171,7 @@ void menuActionOld(uint8_t button){
 			}
 			mylog.nextRead = logStart;	// reposition nextRead pointer for next read if necessary
 			interrupts();
-			displaymenu(menuPage, true);
+			displaymenu(menuCursor.menuIdx, true);
 			break;
 		}
 		#ifdef LCD
